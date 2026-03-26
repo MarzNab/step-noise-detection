@@ -23,9 +23,9 @@ from tdd_reader import (
     parse_header, load_data, get_total_samples,
     descramble_channels, TDDHeader,
 )
-from noise_detector import (
-    detect_rms_noise, detect_edges, compute_fft_chunks,
-    EdgeEvent, RMSResult,
+from detectors import (
+    detect_rms_noise, detect_edges, compute_fft_chunks, detect_envelope,
+    EdgeEvent, RMSResult, EnvelopeResult,
 )
 
 
@@ -64,10 +64,11 @@ class StepNoiseApp:
         self.chan_map:        list = []
 
         # Analysis results  {channel_id -> result}
-        self.rms_results:   dict = {}
-        self.edge_results:  dict = {}
-        self.fft_results:   dict = {}
-        self.fft_chunk_idx: int  = 0
+        self.rms_results:      dict = {}
+        self.edge_results:     dict = {}
+        self.fft_results:      dict = {}
+        self.envelope_results: dict = {}
+        self.fft_chunk_idx:    int  = 0
 
         self._build_ui()
         self._set_status("Ready — open a TDD file to begin.")
@@ -214,6 +215,14 @@ class StepNoiseApp:
         ttk.Button(rm, text="Run RMS Detection",
                    command=self.run_rms_only).pack(anchor='w', pady=2)
 
+        # ── Envelope ─────────────────────────────────────────────────────────
+        ev = section("Envelope Detection")
+        self.env_peak_sep_var = tk.IntVar(value=50)
+        row(ev, "Peak separation (samples):", self.env_peak_sep_var,
+            widget='spin', from_=5, to=500)
+        ttk.Button(ev, text="Run Envelope Detection",
+                   command=self.run_envelope_only).pack(anchor='w', pady=2)
+
         # ── FFT ──────────────────────────────────────────────────────────────
         ff = section("FFT")
         self.fft_chunk_var  = tk.DoubleVar(value=5.0)
@@ -256,6 +265,7 @@ class StepNoiseApp:
             ("Single Channel",     self._build_single_ch_tab),
             ("Edge Detection",     self._build_edge_tab),
             ("RMS Detection",      self._build_rms_tab),
+            ("Envelope",           self._build_envelope_tab),
             ("FFT",                self._build_fft_tab),
         ]
         for label, builder in tabs:
@@ -640,6 +650,76 @@ class StepNoiseApp:
         self.ax_rms.set_xlim(t_s, t_e)
         self.canvas_rms.draw_idle()
 
+    # ── Envelope tab ─────────────────────────────────────────────────────────
+
+    def _build_envelope_tab(self, parent):
+        ctrl = ttk.Frame(parent)
+        ctrl.pack(fill='x', padx=4, pady=2)
+
+        ttk.Button(ctrl, text="Run Envelope Detection",
+                   command=self.run_envelope_only).pack(side='left', padx=4)
+        ttk.Separator(ctrl, orient='vertical').pack(side='left', fill='y', padx=6)
+        self.env_info_var = tk.StringVar(value="No results yet.")
+        ttk.Label(ctrl, textvariable=self.env_info_var,
+                  font=('', 9)).pack(side='left', padx=4)
+
+        self.fig_env, self.canvas_env, axes = _make_plot_area(parent, figsize=(11, 5))
+        self.ax_env = axes[0]
+
+    def _refresh_envelope_tab(self):
+        cid = self._ch_id()
+        res = self.envelope_results.get(cid)
+        if res:
+            verdict = "STEP NOISE DETECTED" if res.ratio < 1.0 else "No step noise"
+            self.env_info_var.set(
+                f"Ch {cid}  |  "
+                f"Mean Hug: {res.mean_hug:.4f} mV  |  "
+                f"Mean Mid: {res.mean_mid:.4f} mV  |  "
+                f"Ratio (hug/mid): {res.ratio:.3f}  |  "
+                f"{verdict}"
+            )
+        else:
+            self.env_info_var.set(
+                f"Ch {cid}  |  No results yet. Click 'Run Envelope Detection'.")
+        self._plot_envelope()
+
+    def _plot_envelope(self):
+        if self.data is None:
+            return
+        cid = self._ch_id()
+        col = self._ch_col()
+        res = self.envelope_results.get(cid)
+        ax  = self.ax_env
+        ax.clear()
+
+        t     = self.time_axis
+        ch_mv = self.data[:, col] / 1000.0  # μV → mV
+
+        # Plot signal as gray dots (matching the MATLAB style)
+        ax.plot(t, ch_mv, '.', color='0.7', markersize=1, label='Signal')
+
+        if res:
+            ax.plot(t, res.upper, 'r', linewidth=1.5, label='Upper envelope')
+            ax.plot(t, res.lower, 'b', linewidth=1.5, label='Lower envelope')
+            ax.axhline(res.signal_mean, color='green', linewidth=1,
+                       linestyle='--', alpha=0.7,
+                       label=f'Mean ({res.signal_mean:.3f} mV)')
+
+            verdict = "STEP NOISE" if res.ratio < 1.0 else "No step noise"
+            ax.set_title(
+                f"Envelope Detection  —  Ch {cid}  |  "
+                f"Hug={res.mean_hug:.4f}  Mid={res.mean_mid:.4f}  "
+                f"Ratio={res.ratio:.3f}  →  {verdict}"
+            )
+            ax.legend(loc='upper right', fontsize=7)
+        else:
+            ax.set_title(f"Envelope Detection  —  Ch {cid}  |  No results")
+
+        ax.set_xlabel("Time (s)")
+        ax.set_ylabel("Amplitude (mV)")
+        ax.grid(True, alpha=0.25)
+        self.canvas_env.draw_idle()
+
     # ── FFT tab ──────────────────────────────────────────────────────────────
 
     def _build_fft_tab(self, parent):
@@ -741,6 +821,7 @@ class StepNoiseApp:
                 self.rms_results.clear()
                 self.edge_results.clear()
                 self.fft_results.clear()
+                self.envelope_results.clear()
 
                 self.root.after(0, self._on_data_loaded)
             except Exception as exc:
@@ -807,7 +888,8 @@ class StepNoiseApp:
         Tab 2 (Single Channel) – replot
         Tab 3 (Edge Detection) – rerun edge detection then refresh
         Tab 4 (RMS Detection)  – rerun RMS then refresh
-        Tab 5 (FFT)            – rerun FFT then refresh
+        Tab 5 (Envelope)       – rerun envelope then refresh
+        Tab 6 (FFT)            – rerun FFT then refresh
         """
         if self.data is None:
             return
@@ -817,11 +899,13 @@ class StepNoiseApp:
         elif tab == 2:
             self.plot_single_ch()
         elif tab == 3:
-            self.run_edge_only()    # rerun + refresh
+            self.run_edge_only()
         elif tab == 4:
-            self.run_rms_only()     # rerun + refresh
+            self.run_rms_only()
         elif tab == 5:
-            self.run_fft_only()     # rerun + refresh
+            self.run_envelope_only()
+        elif tab == 6:
+            self.run_fft_only()
 
     # ── Analysis runners ─────────────────────────────────────────────────────
 
@@ -839,10 +923,13 @@ class StepNoiseApp:
             self.progress_var.set(10)
             self._do_rms()
             self._set_status("Running edge detection…")
-            self.progress_var.set(40)
+            self.progress_var.set(30)
             self._do_edges()
+            self._set_status("Running envelope detection…")
+            self.progress_var.set(55)
+            self._do_envelope()
             self._set_status("Computing FFT…")
-            self.progress_var.set(70)
+            self.progress_var.set(80)
             self._do_fft()
             self.progress_var.set(100)
             self.root.after(0, self._refresh_all)
@@ -912,10 +999,31 @@ class StepNoiseApp:
         )
         self.fft_chunk_idx = 0
 
+    def run_envelope_only(self):
+        if not self._require_data():
+            return
+        def task():
+            self._set_status("Running envelope detection…")
+            self._do_envelope()
+            self.root.after(0, self._refresh_envelope_tab)
+            self.root.after(0, lambda: self._set_status("Envelope detection done."))
+        threading.Thread(target=task, daemon=True).start()
+
+    def _do_envelope(self):
+        col = self._ch_col()
+        cid = self._ch_id()
+        # Run on mV data to match the MATLAB convention
+        ch_mv = self._ch_data(col) / 1000.0
+        self.envelope_results[cid] = detect_envelope(
+            ch_mv,
+            peak_separation = self.env_peak_sep_var.get(),
+        )
+
     def _refresh_all(self):
         self.plot_overview()
         self._refresh_edge_tab()
         self._refresh_rms_tab()
+        self._refresh_envelope_tab()
         self.plot_fft()
 
     # ── Plot: Overview ───────────────────────────────────────────────────────
