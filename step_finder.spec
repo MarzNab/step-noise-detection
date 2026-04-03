@@ -1,5 +1,5 @@
 # -*- mode: python ; coding: utf-8 -*-
-"""PyInstaller spec for Step Noise Detection application."""
+"""PyInstaller spec for Step Noise Finder application."""
 
 import os
 from PyInstaller.utils.win32.versioninfo import (
@@ -23,11 +23,11 @@ version_info = VSVersionInfo(
         StringFileInfo([
             StringTable('040904B0', [
                 StringStruct('CompanyName',      'Nabsys'),
-                StringStruct('FileDescription',  'Step Noise Detection'),
+                StringStruct('FileDescription',  'Step Noise Finder'),
                 StringStruct('FileVersion',      '1.0.0.0'),
-                StringStruct('InternalName',     'StepNoiseDetection'),
-                StringStruct('OriginalFilename', 'StepNoiseDetection.exe'),
-                StringStruct('ProductName',      'Step Noise Detection'),
+                StringStruct('InternalName',     'StepNoiseFinder'),
+                StringStruct('OriginalFilename', 'StepNoiseFinder.exe'),
+                StringStruct('ProductName',      'Step Noise Finder'),
                 StringStruct('ProductVersion',   '1.0.0.0'),
             ]),
         ]),
@@ -36,20 +36,12 @@ version_info = VSVersionInfo(
 )
 
 a = Analysis(
-    [os.path.join(ROOT, 'src', 'main.py')],
+    [os.path.join(ROOT, 'src', 'step_finder.py')],
     pathex=[os.path.join(ROOT, 'src')],
     binaries=[],
-    datas=[
-        (os.path.join(ROOT, 'doc'), 'doc'),
-    ],
+    datas=[],
     hiddenimports=[
-        'detectors',
-        'detectors.rms',
-        'detectors.edge',
-        'detectors.fft',
-        'detectors.envelope',
         'tdd_reader',
-        'app',
         'numpy',
         'numpy.f2py',
         'numpy.f2py.auxfuncs',
@@ -82,7 +74,7 @@ exe = EXE(
     a.datas,
     [],
     exclude_binaries=False,
-    name='StepNoiseDetection',
+    name='StepNoiseFinder',
     debug=False,
     bootloader_ignore_signals=False,
     strip=False,
