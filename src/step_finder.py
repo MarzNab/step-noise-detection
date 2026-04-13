@@ -8,6 +8,7 @@ import sys
 import os
 import glob
 import threading
+from datetime import datetime
 
 # PyInstaller windowed-app guard
 if sys.stdout is None:
@@ -47,6 +48,7 @@ def find_step_noise(
     min_periodicity: float = 0.4,
     window_sec: float = 10.0,
     overlap: float = 0.5,
+    max_gap_sec: float = 30.0,
 ):
     """
     Detect time segments with periodic step noise.
@@ -88,11 +90,19 @@ def find_step_noise(
             continue
 
         peak_lag = int(np.argmax(ac_band)) + min_lag
-        freq = sample_rate / peak_lag
 
-        # Baseline = mean of raw (unfiltered) signal in this window
-        raw_seg = channel_uv[start : start + window_n]
-        baseline_mv = round(float(raw_seg.mean()) / 1000.0, 1)
+        # Reject single level shifts: true periodic signals have autocorrelation
+        # peaks at multiples of the fundamental lag (2x, 3x).  A one-off step
+        # only rings once in the bandpass filter and won't show a 2nd-harmonic peak.
+        lag_2x = 2 * peak_lag
+        if lag_2x < len(ac):
+            ac_2nd = float(ac[lag_2x])
+            if ac_2nd < 0.15:
+                continue
+        else:
+            continue
+
+        freq = sample_rate / peak_lag
 
         raw_hits.append(
             {
@@ -101,7 +111,6 @@ def find_step_noise(
                 "frequency_hz": round(freq, 1),
                 "amplitude_mv": round(pp_mv, 1),
                 "periodicity": round(peak_ac, 3),
-                "baseline_mv": baseline_mv,
             }
         )
 
@@ -112,18 +121,36 @@ def find_step_noise(
     merged = [raw_hits[0].copy()]
     for h in raw_hits[1:]:
         prev = merged[-1]
-        if h["start_sec"] <= prev["end_sec"]:
+        gap = h["start_sec"] - prev["end_sec"]
+        if gap <= max_gap_sec:
             prev["end_sec"] = max(prev["end_sec"], h["end_sec"])
             prev["amplitude_mv"] = max(prev["amplitude_mv"], h["amplitude_mv"])
             prev["periodicity"] = max(prev["periodicity"], h["periodicity"])
             prev["frequency_hz"] = round(
                 (prev["frequency_hz"] + h["frequency_hz"]) / 2, 1
             )
-            prev["baseline_mv"] = round(
-                (prev["baseline_mv"] + h["baseline_mv"]) / 2, 1
-            )
         else:
             merged.append(h.copy())
+
+    # Compute baselines: max value of raw signal in a window just before
+    # and just after each step-noise segment
+    n_total = len(channel_uv)
+    for seg in merged:
+        # Pre-baseline: window before start
+        pre_end = int(seg["start_sec"] * sample_rate)
+        pre_start = max(0, pre_end - window_n)
+        if pre_start < pre_end:
+            seg["baseline_mv"] = round(float(channel_uv[pre_start:pre_end].max()) / 1000.0, 1)
+        else:
+            seg["baseline_mv"] = 0.0
+
+        # Post-baseline: window after end (if data exists)
+        post_start = int(seg["end_sec"] * sample_rate)
+        post_end = min(n_total, post_start + window_n)
+        if post_start < post_end and post_start < n_total:
+            seg["post_baseline_mv"] = round(float(channel_uv[post_start:post_end].max()) / 1000.0, 1)
+        else:
+            seg["post_baseline_mv"] = None
 
     return merged
 
@@ -146,6 +173,9 @@ class StepFinderApp:
         self.chan_map: list = []
         self.results: list = []          # list of (cid, col, segments) per file
         self._scanning = False
+        self._batch_folder: str | None = None
+        self._batch_files: list = []
+        self._batch_label: str = ""
         # Folder-scan: cache of loaded file data for plotting
         self._file_cache: dict = {}      # filepath -> (header, data, chan_map)
 
@@ -160,15 +190,17 @@ class StepFinderApp:
         file_menu = tk.Menu(menu, tearoff=0)
         file_menu.add_command(label="Open TDD…", command=self._open_file,
                               accelerator="Ctrl+O")
-        file_menu.add_command(label="Scan Files…", command=self._open_files,
+        file_menu.add_separator()
+        file_menu.add_command(label="Scan Baselines…", command=self._scan_folder,
                               accelerator="Ctrl+Shift+O")
-        file_menu.add_command(label="Scan Folder…", command=self._open_folder)
+        file_menu.add_command(label="Scan Files…", command=self._scan_files)
+        file_menu.add_command(label="Scan Folders…", command=self._scan_multi_folders)
         file_menu.add_separator()
         file_menu.add_command(label="Exit", command=self.root.quit)
         menu.add_cascade(label="File", menu=file_menu)
         self.root.config(menu=menu)
         self.root.bind_all("<Control-o>", lambda e: self._open_file())
-        self.root.bind_all("<Control-Shift-O>", lambda e: self._open_files())
+        self.root.bind_all("<Control-Shift-O>", lambda e: self._scan_folder())
 
         # Top bar — file info + parameters
         top = ttk.Frame(self.root, padding=6)
@@ -197,15 +229,17 @@ class StepFinderApp:
         ttk.Spinbox(top, textvariable=self.per_var, from_=0.1, to=0.95,
                      increment=0.05, width=5, format="%.2f").pack(side="left", padx=(2, 12))
 
+        ttk.Label(top, text="Gap (s):").pack(side="left")
+        self.gap_var = tk.DoubleVar(value=30.0)
+        ttk.Spinbox(top, textvariable=self.gap_var, from_=0, to=300,
+                     increment=5, width=5).pack(side="left", padx=(2, 12))
+
         self.scan_btn = ttk.Button(top, text="Scan All Channels",
                                    command=self._start_scan, state="disabled")
         self.scan_btn.pack(side="left", padx=4)
 
         self.folder_btn = ttk.Button(top, text="Scan Baselines…",
-                                     command=self._open_folder)
-        self.files_btn = ttk.Button(top, text="Pick Files…",
-                                    command=self._open_files)
-        self.files_btn.pack(side="left", padx=4)
+                                     command=self._scan_folder)
         self.folder_btn.pack(side="left", padx=4)
 
         # Progress
@@ -224,7 +258,8 @@ class StepFinderApp:
         tbl_frame = ttk.Frame(pane)
         pane.add(tbl_frame, weight=1)
 
-        cols = ("file", "channel", "start", "end", "freq", "amp", "baseline", "periodicity")
+        cols = ("file", "channel", "start", "end", "freq", "amp",
+                "pre_baseline", "post_baseline", "periodicity")
         self.tree = ttk.Treeview(tbl_frame, columns=cols, show="headings",
                                  selectmode="browse")
         self.tree.heading("file", text="File")
@@ -233,13 +268,15 @@ class StepFinderApp:
         self.tree.heading("end", text="End (s)")
         self.tree.heading("freq", text="Freq (Hz)")
         self.tree.heading("amp", text="Amp (mV)")
-        self.tree.heading("baseline", text="Baseline (mV)")
+        self.tree.heading("pre_baseline", text="Pre BL (mV)")
+        self.tree.heading("post_baseline", text="Post BL (mV)")
         self.tree.heading("periodicity", text="Periodicity")
         for c in cols:
             self.tree.column(c, width=85, anchor="center")
         self.tree.column("file", width=180, anchor="w")
         self.tree.column("channel", width=70)
-        self.tree.column("baseline", width=95)
+        self.tree.column("pre_baseline", width=90)
+        self.tree.column("post_baseline", width=90)
 
         vsb = ttk.Scrollbar(tbl_frame, orient="vertical", command=self.tree.yview)
         self.tree.configure(yscrollcommand=vsb.set)
@@ -264,6 +301,14 @@ class StepFinderApp:
         self.status_bar = ttk.Label(self.root, text="", relief="sunken",
                                     anchor="w", padding=2)
         self.status_bar.pack(fill="x", side="bottom")
+
+    # ── Helpers ───────────────────────────────────────────────────────────
+
+    @staticmethod
+    def _short_name(filepath: str) -> str:
+        """Truncate the part before the first '_' in the filename."""
+        name = os.path.basename(filepath)
+        return name.split("_", 1)[-1] if "_" in name else name
 
     # ── File handling ─────────────────────────────────────────────────────
 
@@ -293,7 +338,7 @@ class StepFinderApp:
             self.filepath = fp
             dur = data.shape[0] / header.sample_rate
             self.file_lbl.config(
-                text=f"{os.path.basename(fp)}  ({header.channel_count} ch, "
+                text=f"{self._short_name(fp)}  ({header.channel_count} ch, "
                      f"{header.sample_rate} Hz, {dur:.0f} s)"
             )
             self.scan_btn.config(state="normal")
@@ -304,9 +349,91 @@ class StepFinderApp:
         except Exception as exc:
             messagebox.showerror("Error", f"Failed to open file:\n{exc}")
 
-    def _open_files(self):
+    def _pick_folder(self, parent=None) -> str | None:
+        """Show a folder picker that previews Baseline TDD files."""
+        parent = parent or self.root
+        dlg = tk.Toplevel(parent)
+        dlg.title("Select Folder")
+        dlg.geometry("560x340")
+        dlg.transient(parent)
+        dlg.grab_set()
+
+        result: list[str | None] = [None]  # mutable container for result
+
+        # Folder path row
+        path_frame = ttk.Frame(dlg, padding=(10, 10, 10, 4))
+        path_frame.pack(fill="x")
+        ttk.Label(path_frame, text="Folder:").pack(side="left")
+        path_var = tk.StringVar()
+        path_entry = ttk.Entry(path_frame, textvariable=path_var, state="readonly")
+        path_entry.pack(side="left", fill="x", expand=True, padx=(6, 6))
+
+        # File preview list
+        ttk.Label(dlg, text="Baseline TDD files in folder:",
+                  padding=(10, 4)).pack(anchor="w")
+        preview_frame = ttk.Frame(dlg, padding=(10, 0, 10, 0))
+        preview_frame.pack(fill="both", expand=True)
+        preview_list = tk.Listbox(preview_frame)
+        psb = ttk.Scrollbar(preview_frame, orient="vertical",
+                            command=preview_list.yview)
+        preview_list.configure(yscrollcommand=psb.set)
+        preview_list.pack(side="left", fill="both", expand=True)
+        psb.pack(side="right", fill="y")
+
+        def _update_preview(folder):
+            path_var.set(folder)
+            preview_list.delete(0, "end")
+            for fp in sorted(glob.glob(os.path.join(folder, "*Baseline*.tdd"))):
+                preview_list.insert("end", os.path.basename(fp))
+
+        def _browse():
+            pick = filedialog.askopenfilename(
+                title="Select any TDD in the folder to scan",
+                filetypes=[("Baseline TDD", "*Baseline*.tdd"),
+                           ("All TDD files", "*.tdd")],
+                parent=dlg)
+            if pick:
+                _update_preview(os.path.dirname(pick))
+
+        ttk.Button(path_frame, text="Browse…", command=_browse).pack(side="left")
+
+        def _ok():
+            folder = path_var.get()
+            if not folder:
+                messagebox.showinfo("No folder", "Browse to a folder first.",
+                                    parent=dlg)
+                return
+            if preview_list.size() == 0:
+                messagebox.showinfo("No files",
+                                    "No *Baseline*.tdd files in this folder.",
+                                    parent=dlg)
+                return
+            result[0] = folder
+            dlg.destroy()
+
+        btn_frame = ttk.Frame(dlg, padding=10)
+        btn_frame.pack(fill="x")
+        ttk.Button(btn_frame, text="OK", command=_ok).pack(side="right")
+        ttk.Button(btn_frame, text="Cancel", command=dlg.destroy).pack(
+            side="right", padx=(0, 6))
+
+        dlg.wait_window()
+        return result[0]
+
+    def _scan_folder(self):
+        """Pick a folder — scans all *Baseline*.tdd files in it."""
+        folder = self._pick_folder()
+        if not folder:
+            return
+        tdd_files = sorted(glob.glob(os.path.join(folder, "*Baseline*.tdd")))
+        if not tdd_files:
+            return
+        self._launch_batch_scan(tdd_files)
+
+    def _scan_files(self):
+        """Pick individual TDD files to scan."""
         files = filedialog.askopenfilenames(
-            title="Select Baseline TDD files to scan",
+            title="Select TDD files to scan",
             filetypes=[("Baseline TDD files", "*Baseline*.tdd"),
                        ("All TDD files", "*.tdd")],
         )
@@ -314,30 +441,96 @@ class StepFinderApp:
             return
         self._launch_batch_scan(sorted(files))
 
-    def _open_folder(self):
-        folder = filedialog.askdirectory(title="Select folder with Baseline TDD files")
-        if not folder:
-            return
-        tdd_files = sorted(glob.glob(os.path.join(folder, "*Baseline*.tdd")))
-        if not tdd_files:
-            messagebox.showinfo("No files",
-                                "No *Baseline*.tdd files found in the selected folder.")
-            return
-        self._launch_batch_scan(tdd_files)
+    def _scan_multi_folders(self):
+        """Show a dialog where the user can add/remove folders, then scan."""
+        dlg = tk.Toplevel(self.root)
+        dlg.title("Select Folders to Scan")
+        dlg.geometry("620x400")
+        dlg.transient(self.root)
+        dlg.grab_set()
 
-    def _launch_batch_scan(self, tdd_files: list):
+        ttk.Label(dlg, text="Folders to scan (*Baseline*.tdd files):").pack(
+            anchor="w", padx=10, pady=(10, 4))
+
+        list_frame = ttk.Frame(dlg)
+        list_frame.pack(fill="both", expand=True, padx=10)
+
+        listbox = tk.Listbox(list_frame, selectmode="extended")
+        sb = ttk.Scrollbar(list_frame, orient="vertical", command=listbox.yview)
+        listbox.configure(yscrollcommand=sb.set)
+        listbox.pack(side="left", fill="both", expand=True)
+        sb.pack(side="right", fill="y")
+
+        # Track folder paths (listbox shows basename + file count)
+        folder_paths: list[str] = []
+
+        def _add_folder():
+            folder = self._pick_folder(parent=dlg)
+            if not folder:
+                return
+            if folder in folder_paths:
+                messagebox.showinfo("Duplicate",
+                                    f"Folder already in list:\n{folder}",
+                                    parent=dlg)
+                return
+            found = sorted(glob.glob(os.path.join(folder, "*Baseline*.tdd")))
+            if not found:
+                messagebox.showinfo("No files",
+                                    f"No *Baseline*.tdd files in:\n{folder}",
+                                    parent=dlg)
+                return
+            folder_paths.append(folder)
+            listbox.insert("end", f"{folder}  ({len(found)} files)")
+
+        def _remove_selected():
+            for idx in reversed(listbox.curselection()):
+                listbox.delete(idx)
+                folder_paths.pop(idx)
+
+        def _scan():
+            if not folder_paths:
+                messagebox.showinfo("No folders",
+                                    "Add at least one folder to scan.",
+                                    parent=dlg)
+                return
+            all_files = []
+            folder_names = []
+            for fp in folder_paths:
+                found = sorted(glob.glob(os.path.join(fp, "*Baseline*.tdd")))
+                all_files.extend(found)
+                folder_names.append(os.path.basename(fp))
+            dlg.destroy()
+            if all_files:
+                self._launch_batch_scan(all_files,
+                                        folder_label=", ".join(folder_names))
+
+        btn_frame = ttk.Frame(dlg)
+        btn_frame.pack(fill="x", padx=10, pady=8)
+        ttk.Button(btn_frame, text="Add Folder…", command=_add_folder).pack(
+            side="left", padx=(0, 6))
+        ttk.Button(btn_frame, text="Remove Selected", command=_remove_selected).pack(
+            side="left", padx=(0, 6))
+        ttk.Button(btn_frame, text="Scan", command=_scan).pack(side="right")
+        ttk.Button(btn_frame, text="Cancel", command=dlg.destroy).pack(
+            side="right", padx=(0, 6))
+
+    def _launch_batch_scan(self, tdd_files: list, folder_label: str | None = None):
         self._file_cache.clear()
         self.filepath = None
         self.header = None
         self.data = None
         self.chan_map = []
+        self._batch_folder = os.path.dirname(tdd_files[0])
+        self._batch_files = tdd_files
+        if folder_label is None:
+            folder_label = os.path.basename(self._batch_folder)
+        self._batch_label = folder_label
         self.tree.delete(*self.tree.get_children())
         self.results.clear()
         self.scan_btn.config(state="disabled")
-        folder = os.path.dirname(tdd_files[0])
         self.file_lbl.config(
-            text=f"{os.path.basename(folder)}/  ({len(tdd_files)} Baseline files)")
-        self._status(f"Scanning {len(tdd_files)} file(s) in {os.path.basename(folder)}…")
+            text=f"{folder_label}/  ({len(tdd_files)} Baseline files)")
+        self._status(f"Scanning {len(tdd_files)} file(s) in {folder_label}…")
         self._start_folder_scan(tdd_files)
 
     # ── Scanning ──────────────────────────────────────────────────────────
@@ -346,6 +539,8 @@ class StepFinderApp:
         if self._scanning or self.data is None:
             return
         self._scanning = True
+        self._batch_folder = os.path.dirname(self.filepath)
+        self._batch_files = [self.filepath]
         self.scan_btn.config(state="disabled")
         self.tree.delete(*self.tree.get_children())
         self.results.clear()
@@ -381,6 +576,7 @@ class StepFinderApp:
                 ch_data, header.sample_rate,
                 freq_lo=flo, freq_hi=fhi,
                 min_amplitude_mv=amp, min_periodicity=per,
+                max_gap_sec=self.gap_var.get(),
             )
             if segments:
                 found.append((filepath, cid, col, segments))
@@ -399,7 +595,7 @@ class StepFinderApp:
         all_found = []
 
         for fi, fp in enumerate(tdd_files):
-            fname = os.path.basename(fp)
+            fname = self._short_name(fp)
             try:
                 header, data, chan_map = self._load_tdd(fp)
             except Exception:
@@ -449,8 +645,10 @@ class StepFinderApp:
 
         # Populate table
         for filepath, cid, col, segments in found:
-            fname = os.path.basename(filepath)
+            fname = self._short_name(filepath)
             for seg in segments:
+                post_bl = (f"{seg['post_baseline_mv']}"
+                           if seg["post_baseline_mv"] is not None else "—")
                 self.tree.insert(
                     "", "end",
                     values=(
@@ -461,6 +659,7 @@ class StepFinderApp:
                         seg["frequency_hz"],
                         seg["amplitude_mv"],
                         seg["baseline_mv"],
+                        post_bl,
                         seg["periodicity"],
                     ),
                     tags=(filepath, str(col)),
@@ -469,8 +668,98 @@ class StepFinderApp:
         n_files = len({f[0] for f in found})
         n_ch = len({(f[0], f[1]) for f in found})
         n_seg = sum(len(s) for _, _, _, s in found)
-        self._status(f"Scan complete — {n_seg} segment(s) across "
-                     f"{n_ch} channel(s) in {n_files} file(s).")
+
+        # Auto-generate one report per source folder
+        report_paths = []
+        if self._batch_folder and found:
+            # Group results by source folder
+            folders = sorted({os.path.dirname(f[0]) for f in found})
+            for folder in folders:
+                folder_found = [f for f in found if os.path.dirname(f[0]) == folder]
+                folder_files = [fp for fp in self._batch_files
+                                if os.path.dirname(fp) == folder]
+                rp = self._write_report(folder_found, folder, folder_files)
+                if rp:
+                    report_paths.append(rp)
+
+        msg = f"Scan complete — {n_seg} segment(s) across {n_ch} channel(s) in {n_files} file(s)."
+        if report_paths:
+            msg += f"  {len(report_paths)} report(s) saved to results/"
+        self._status(msg)
+
+    # ── Report generation ─────────────────────────────────────────────────
+
+    def _write_report(self, found: list, folder: str,
+                      folder_files: list) -> str | None:
+        """Write a text report for one folder's results."""
+        folder_name = os.path.basename(folder)
+        safe_name = folder_name.replace(" ", "_").replace("/", "_").replace("\\", "_")
+        # Save to <app_dir>/results/
+        app_dir = os.path.dirname(os.path.dirname(os.path.abspath(__file__)))
+        results_dir = os.path.join(app_dir, "results")
+        os.makedirs(results_dir, exist_ok=True)
+        now = datetime.now()
+        timestamp = now.strftime("%Y%m%d_%H%M%S")
+        filename = f"{safe_name}_StepNoiseReport_{timestamp}.txt"
+        report_path = os.path.join(results_dir, filename)
+
+        try:
+            with open(report_path, "w") as f:
+                # Header
+                f.write("=" * 72 + "\n")
+                f.write("  STEP NOISE FINDER — SCAN REPORT\n")
+                f.write("=" * 72 + "\n\n")
+                f.write(f"Date:       {now.strftime('%Y-%m-%d %H:%M:%S')}\n")
+                f.write(f"Folder:     {folder}\n")
+                f.write(f"Files:      {len(folder_files)}\n")
+                for fp in folder_files:
+                    f.write(f"            - {os.path.basename(fp)}\n")
+                f.write(f"\nParameters:\n")
+                f.write(f"  Amplitude  >= {self.amp_var.get()} mV\n")
+                f.write(f"  Frequency     {self.freq_lo_var.get()} - {self.freq_hi_var.get()} Hz\n")
+                f.write(f"  Periodicity >= {self.per_var.get()}\n")
+                f.write(f"  Gap merge  <= {self.gap_var.get()} s\n")
+
+                # Summary
+                n_files = len({f[0] for f in found})
+                n_ch = len({(f[0], f[1]) for f in found})
+                n_seg = sum(len(s) for _, _, _, s in found)
+                f.write(f"\n{'=' * 72}\n")
+                f.write(f"  SUMMARY\n")
+                f.write(f"{'=' * 72}\n\n")
+                f.write(f"  Channels with step noise: {n_ch}\n")
+                f.write(f"  Total segments detected:  {n_seg}\n")
+                f.write(f"  Files with detections:    {n_files}\n")
+
+                # Results table
+                f.write(f"\n{'=' * 72}\n")
+                f.write(f"  DETECTIONS\n")
+                f.write(f"{'=' * 72}\n\n")
+
+                hdr = (f"{'File':<35} {'Ch':>4} {'Start':>8} {'End':>8} "
+                       f"{'Freq':>6} {'Amp':>8} {'PreBL':>8} {'PostBL':>8} {'Period':>7}\n")
+                f.write(hdr)
+                f.write("-" * len(hdr.rstrip()) + "\n")
+
+                for filepath, cid, col, segments in found:
+                    fname = self._short_name(filepath)
+                    for seg in segments:
+                        post_bl = (f"{seg['post_baseline_mv']:>8.1f}"
+                                   if seg["post_baseline_mv"] is not None else "     N/A")
+                        f.write(
+                            f"{fname:<35} {cid:>4} {seg['start_sec']:>8.1f} "
+                            f"{seg['end_sec']:>8.1f} {seg['frequency_hz']:>6.1f} "
+                            f"{seg['amplitude_mv']:>8.1f} {seg['baseline_mv']:>8.1f} "
+                            f"{post_bl} {seg['periodicity']:>7.3f}\n"
+                        )
+
+                f.write(f"\n{'=' * 72}\n")
+                f.write(f"  End of report\n")
+                f.write(f"{'=' * 72}\n")
+
+            return report_path
+        except Exception:
+            return None
 
     # ── Plot on selection ─────────────────────────────────────────────────
 
@@ -484,7 +773,9 @@ class StepFinderApp:
         cid = int(vals[1])
         start_sec = float(vals[2])
         end_sec = float(vals[3])
-        baseline_mv = float(vals[6])
+        pre_bl_mv = float(vals[6])
+        post_bl_str = vals[7]
+        post_bl_mv = float(post_bl_str) if post_bl_str != "—" else None
         tags = item["tags"]
         filepath = tags[0]
         col = int(tags[1])
@@ -517,8 +808,11 @@ class StepFinderApp:
         self.ax_raw.plot(t, raw_mv, linewidth=0.5, color="#1f77b4")
         self.ax_raw.axvspan(start_sec, end_sec, alpha=0.15, color="red",
                             label="Step noise")
-        self.ax_raw.axhline(baseline_mv, color="#2ca02c", linewidth=1,
-                            linestyle="--", label=f"Baseline {baseline_mv:.1f} mV")
+        self.ax_raw.axhline(pre_bl_mv, color="#2ca02c", linewidth=1,
+                            linestyle="--", label=f"Pre BL {pre_bl_mv:.1f} mV")
+        if post_bl_mv is not None:
+            self.ax_raw.axhline(post_bl_mv, color="#ff7f0e", linewidth=1,
+                                linestyle="--", label=f"Post BL {post_bl_mv:.1f} mV")
         self.ax_raw.set_ylabel("mV")
         self.ax_raw.set_title(f"{fname} — Ch {cid} — Raw signal", fontsize=10)
         self.ax_raw.legend(loc="upper right", fontsize=8)
