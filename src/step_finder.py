@@ -242,13 +242,26 @@ class StepFinderApp:
                                      command=self._scan_folder)
         self.folder_btn.pack(side="left", padx=4)
 
+        self.full_file_var = tk.BooleanVar(value=False)
+        ttk.Checkbutton(top, text="Full file (top plot)",
+                        variable=self.full_file_var,
+                        command=self._on_select).pack(side="left", padx=(12, 4))
+
         # Progress
         prog_frame = ttk.Frame(self.root, padding=(6, 0))
         prog_frame.pack(fill="x")
+        self.busy_lbl = tk.Label(prog_frame, text="", fg="red",
+                                 font=("Segoe UI", 10, "bold"), width=14,
+                                 anchor="w")
+        self.busy_lbl.pack(side="left", padx=(0, 6))
         self.progress = ttk.Progressbar(prog_frame, mode="determinate")
         self.progress.pack(fill="x", side="left", expand=True)
         self.prog_lbl = ttk.Label(prog_frame, text="", width=30)
         self.prog_lbl.pack(side="left", padx=6)
+
+        # Animation state for the analyzing indicator
+        self._busy_dots = 0
+        self._busy_after_id = None
 
         # Main area — PanedWindow: results table (left) + plot (right)
         pane = ttk.PanedWindow(self.root, orient="horizontal")
@@ -309,6 +322,14 @@ class StepFinderApp:
         """Truncate the part before the first '_' in the filename."""
         name = os.path.basename(filepath)
         return name.split("_", 1)[-1] if "_" in name else name
+
+    @staticmethod
+    def _datetime_code(filepath: str) -> str:
+        """Extract the 14-digit datetime code from the TDD filename."""
+        import re
+        name = os.path.basename(filepath)
+        m = re.search(r"\d{14}", name)
+        return m.group(0) if m else name
 
     # ── File handling ─────────────────────────────────────────────────────
 
@@ -546,6 +567,7 @@ class StepFinderApp:
         self.results.clear()
         self.progress["value"] = 0
         self.progress["maximum"] = len(self.chan_map)
+        self._start_busy_indicator()
         threading.Thread(target=self._scan_worker,
                          args=(self.filepath, self.header, self.data, self.chan_map),
                          daemon=True).start()
@@ -557,8 +579,32 @@ class StepFinderApp:
         self.scan_btn.config(state="disabled")
         self.folder_btn.config(state="disabled")
         self.progress["value"] = 0
+        self._start_busy_indicator()
         threading.Thread(target=self._folder_scan_worker, args=(tdd_files,),
                          daemon=True).start()
+
+    # ── Analyzing indicator ───────────────────────────────────────────────
+
+    def _start_busy_indicator(self):
+        self._busy_dots = 0
+        self._tick_busy_indicator()
+
+    def _tick_busy_indicator(self):
+        if not self._scanning:
+            self.busy_lbl.config(text="")
+            self._busy_after_id = None
+            return
+        self._busy_dots = (self._busy_dots + 1) % 4
+        dots = "." * self._busy_dots
+        self.busy_lbl.config(text=f"● Analyzing{dots}")
+        self._busy_after_id = self.root.after(400, self._tick_busy_indicator)
+
+    def _stop_busy_indicator(self):
+        self._scanning = False
+        if self._busy_after_id is not None:
+            self.root.after_cancel(self._busy_after_id)
+            self._busy_after_id = None
+        self.busy_lbl.config(text="")
 
     def _scan_worker(self, filepath, header, data, chan_map):
         amp = self.amp_var.get()
@@ -593,6 +639,20 @@ class StepFinderApp:
         per = self.per_var.get()
         n_files = len(tdd_files)
         all_found = []
+        report_paths = []
+
+        # Group files by source folder, preserving scan order
+        folders_ordered = []
+        folder_to_files = {}
+        for fp in tdd_files:
+            d = os.path.dirname(fp)
+            if d not in folder_to_files:
+                folder_to_files[d] = []
+                folders_ordered.append(d)
+            folder_to_files[d].append(fp)
+
+        folder_idx = 0
+        files_done_in_folder = 0
 
         for fi, fp in enumerate(tdd_files):
             fname = self._short_name(fp)
@@ -601,43 +661,60 @@ class StepFinderApp:
             except Exception:
                 self.root.after(0, self._update_progress, fi + 1, n_files,
                                 f"SKIP {fname}")
-                continue
+                chan_map = None
 
-            total_ch = len(chan_map)
-            for ci, cm in enumerate(chan_map):
-                cid, col = cm["cid"], cm["col"]
-                ch_data = data[:, col].astype(np.float64)
+            if chan_map is not None:
+                total_ch = len(chan_map)
+                for ci, cm in enumerate(chan_map):
+                    cid, col = cm["cid"], cm["col"]
+                    ch_data = data[:, col].astype(np.float64)
 
-                segments = find_step_noise(
-                    ch_data, header.sample_rate,
-                    freq_lo=flo, freq_hi=fhi,
-                    min_amplitude_mv=amp, min_periodicity=per,
-                )
-                if segments:
-                    all_found.append((fp, cid, col, segments))
+                    segments = find_step_noise(
+                        ch_data, header.sample_rate,
+                        freq_lo=flo, freq_hi=fhi,
+                        min_amplitude_mv=amp, min_periodicity=per,
+                    )
+                    if segments:
+                        all_found.append((fp, cid, col, segments))
 
-                self.root.after(
-                    0, self._update_progress,
-                    fi * total_ch + ci + 1,
-                    n_files * total_ch,
-                    f"{fname}  Ch {cid}",
-                )
+                    self.root.after(
+                        0, self._update_progress,
+                        fi * total_ch + ci + 1,
+                        n_files * total_ch,
+                        f"{fname}  Ch {cid}",
+                    )
 
-            # Free memory for files we're done scanning (keep only those with hits)
-            hit_fps = {f[0] for f in all_found}
-            for cached_fp in list(self._file_cache.keys()):
-                if cached_fp != fp and cached_fp not in hit_fps:
-                    del self._file_cache[cached_fp]
+                # Free memory (keep only files with hits)
+                hit_fps = {f[0] for f in all_found}
+                for cached_fp in list(self._file_cache.keys()):
+                    if cached_fp != fp and cached_fp not in hit_fps:
+                        del self._file_cache[cached_fp]
 
-        self.root.after(0, self._scan_done, all_found)
+            # Write this folder's report once all its files have been scanned
+            cur_folder = folders_ordered[folder_idx]
+            files_done_in_folder += 1
+            if files_done_in_folder == len(folder_to_files[cur_folder]):
+                folder_files = folder_to_files[cur_folder]
+                folder_found = [x for x in all_found
+                                if os.path.dirname(x[0]) == cur_folder]
+                if folder_found:
+                    rp = self._write_report(folder_found, cur_folder, folder_files)
+                    if rp:
+                        report_paths.append(rp)
+                        self.root.after(0, self._status,
+                                        f"Report written: {os.path.basename(rp)}")
+                folder_idx += 1
+                files_done_in_folder = 0
+
+        self.root.after(0, self._scan_done, all_found, report_paths)
 
     def _update_progress(self, done: int, total: int, label: str):
         self.progress["maximum"] = total
         self.progress["value"] = done
         self.prog_lbl.config(text=f"{label}  ({done}/{total})")
 
-    def _scan_done(self, found: list):
-        self._scanning = False
+    def _scan_done(self, found: list, report_paths: list | None = None):
+        self._stop_busy_indicator()
         self.scan_btn.config(state="normal" if self.data is not None else "disabled")
         self.folder_btn.config(state="normal")
         self.results = found
@@ -669,18 +746,20 @@ class StepFinderApp:
         n_ch = len({(f[0], f[1]) for f in found})
         n_seg = sum(len(s) for _, _, _, s in found)
 
-        # Auto-generate one report per source folder
-        report_paths = []
-        if self._batch_folder and found:
-            # Group results by source folder
-            folders = sorted({os.path.dirname(f[0]) for f in found})
-            for folder in folders:
-                folder_found = [f for f in found if os.path.dirname(f[0]) == folder]
-                folder_files = [fp for fp in self._batch_files
-                                if os.path.dirname(fp) == folder]
-                rp = self._write_report(folder_found, folder, folder_files)
-                if rp:
-                    report_paths.append(rp)
+        # Reports were written incrementally by the folder scan worker.
+        # For single-file scans (no incremental reports), write one now.
+        if report_paths is None:
+            report_paths = []
+            if self._batch_folder and found:
+                folders = sorted({os.path.dirname(f[0]) for f in found})
+                for folder in folders:
+                    folder_found = [f for f in found
+                                    if os.path.dirname(f[0]) == folder]
+                    folder_files = [fp for fp in self._batch_files
+                                    if os.path.dirname(fp) == folder]
+                    rp = self._write_report(folder_found, folder, folder_files)
+                    if rp:
+                        report_paths.append(rp)
 
         msg = f"Scan complete — {n_seg} segment(s) across {n_ch} channel(s) in {n_files} file(s)."
         if report_paths:
@@ -689,18 +768,34 @@ class StepFinderApp:
 
     # ── Report generation ─────────────────────────────────────────────────
 
+    @staticmethod
+    def _run_name(filepath: str) -> str:
+        """Extract the run name from a TDD filename.
+
+        For "HAK04-008B-02L64869w15-205B16a-OHMX205-UNO256_205_..._Baseline.tdd"
+        returns "HAK04-008B-02L64869w15-205B16a" (first 4 dash-separated parts).
+        """
+        base = os.path.basename(filepath)
+        if base.lower().endswith(".tdd"):
+            base = base[:-4]
+        parts = base.split("-")
+        return "-".join(parts[:4]) if len(parts) >= 4 else base
+
     def _write_report(self, found: list, folder: str,
                       folder_files: list) -> str | None:
         """Write a text report for one folder's results."""
-        folder_name = os.path.basename(folder)
-        safe_name = folder_name.replace(" ", "_").replace("/", "_").replace("\\", "_")
+        # Derive run name from a TDD filename in this folder
+        source_files = folder_files or [f[0] for f in found]
+        run_name = (self._run_name(source_files[0])
+                    if source_files else os.path.basename(folder))
+        safe_name = run_name.replace(" ", "_").replace("/", "_").replace("\\", "_")
         # Save to <app_dir>/results/
         app_dir = os.path.dirname(os.path.dirname(os.path.abspath(__file__)))
         results_dir = os.path.join(app_dir, "results")
         os.makedirs(results_dir, exist_ok=True)
         now = datetime.now()
         timestamp = now.strftime("%Y%m%d_%H%M%S")
-        filename = f"{safe_name}_StepNoiseReport_{timestamp}.txt"
+        filename = f"{safe_name}_{timestamp}.txt"
         report_path = os.path.join(results_dir, filename)
 
         try:
@@ -736,18 +831,18 @@ class StepFinderApp:
                 f.write(f"  DETECTIONS\n")
                 f.write(f"{'=' * 72}\n\n")
 
-                hdr = (f"{'File':<35} {'Ch':>4} {'Start':>8} {'End':>8} "
+                hdr = (f"{'File':<16} {'Ch':>4} {'Start':>8} {'End':>8} "
                        f"{'Freq':>6} {'Amp':>8} {'PreBL':>8} {'PostBL':>8} {'Period':>7}\n")
                 f.write(hdr)
                 f.write("-" * len(hdr.rstrip()) + "\n")
 
                 for filepath, cid, col, segments in found:
-                    fname = self._short_name(filepath)
+                    fname = self._datetime_code(filepath)
                     for seg in segments:
                         post_bl = (f"{seg['post_baseline_mv']:>8.1f}"
                                    if seg["post_baseline_mv"] is not None else "     N/A")
                         f.write(
-                            f"{fname:<35} {cid:>4} {seg['start_sec']:>8.1f} "
+                            f"{fname:<16} {cid:>4} {seg['start_sec']:>8.1f} "
                             f"{seg['end_sec']:>8.1f} {seg['frequency_hz']:>6.1f} "
                             f"{seg['amplitude_mv']:>8.1f} {seg['baseline_mv']:>8.1f} "
                             f"{post_bl} {seg['periodicity']:>7.3f}\n"
@@ -788,24 +883,34 @@ class StepFinderApp:
             return
 
         fs = header.sample_rate
-        s0 = max(0, int(start_sec * fs) - int(5 * fs))   # 5 s context
-        s1 = min(data.shape[0], int(end_sec * fs) + int(5 * fs))
+        # Event window (used for filtered plot and, by default, raw plot)
+        ev_s0 = max(0, int(start_sec * fs) - int(5 * fs))   # 5 s context
+        ev_s1 = min(data.shape[0], int(end_sec * fs) + int(5 * fs))
 
-        raw_uv = data[s0:s1, col].astype(np.float64)
-        t = np.arange(s0, s1) / fs
+        # Raw plot range: full file when checkbox is on, else event window
+        if self.full_file_var.get():
+            raw_s0, raw_s1 = 0, data.shape[0]
+        else:
+            raw_s0, raw_s1 = ev_s0, ev_s1
 
+        raw_full_uv = data[raw_s0:raw_s1, col].astype(np.float64)
+        t_raw = np.arange(raw_s0, raw_s1) / fs
+
+        # Filtered always works on the event window (for speed + focus)
+        filt_src_uv = data[ev_s0:ev_s1, col].astype(np.float64)
+        t_filt = np.arange(ev_s0, ev_s1) / fs
         filt_uv = _bandpass(
-            raw_uv, fs,
+            filt_src_uv, fs,
             max(0.5, self.freq_lo_var.get() - 1),
             min(fs / 2 - 1, self.freq_hi_var.get() + 5),
         )
 
-        raw_mv = raw_uv / 1000
+        raw_mv = raw_full_uv / 1000
         filt_mv = filt_uv / 1000
 
         # Raw plot
         self.ax_raw.clear()
-        self.ax_raw.plot(t, raw_mv, linewidth=0.5, color="#1f77b4")
+        self.ax_raw.plot(t_raw, raw_mv, linewidth=0.5, color="#1f77b4")
         self.ax_raw.axvspan(start_sec, end_sec, alpha=0.15, color="red",
                             label="Step noise")
         self.ax_raw.axhline(pre_bl_mv, color="#2ca02c", linewidth=1,
@@ -819,7 +924,7 @@ class StepFinderApp:
 
         # Filtered plot
         self.ax_filt.clear()
-        self.ax_filt.plot(t, filt_mv, linewidth=0.5, color="#d62728")
+        self.ax_filt.plot(t_filt, filt_mv, linewidth=0.5, color="#d62728")
         self.ax_filt.axvspan(start_sec, end_sec, alpha=0.15, color="red")
         self.ax_filt.set_ylabel("mV")
         self.ax_filt.set_xlabel("Time (s)")
