@@ -851,10 +851,97 @@ class StepFinderApp:
                 f.write(f"\n{'=' * 72}\n")
                 f.write(f"  End of report\n")
                 f.write(f"{'=' * 72}\n")
-
-            return report_path
         except Exception:
             return None
+
+        # Also write a Sherlock-compatible JSON sibling (best-effort)
+        try:
+            json_path = report_path[:-4] + ".json"
+            self._write_run_results_json(found, source_files, json_path)
+        except Exception:
+            pass  # JSON is optional; .txt is the primary artifact
+
+        return report_path
+
+    # ── Sherlock-compatible JSON output ────────────────────────────────────
+
+    def _write_run_results_json(self, found: list, source_files: list,
+                                json_path: str) -> None:
+        """Build and write sherlock.results.RunResults JSON for this folder."""
+        from sherlock.results import RunResults, AggressorBlockResult
+        from datetime import timedelta
+
+        TSTMP_EPOCH = datetime(1904, 1, 1)
+
+        # Pull run-level metadata from the earliest TDD file (by data_start_time)
+        headers = []
+        for fp in source_files:
+            try:
+                h = parse_header(fp)
+                headers.append((h, fp))
+            except Exception:
+                continue
+        if not headers:
+            return
+        headers.sort(key=lambda hf: hf[0].data_start_time)
+        first_h, first_fp = headers[0]
+
+        try:
+            wafer = int(first_h.detector_wafer_id)
+        except (TypeError, ValueError):
+            wafer = 0
+
+        results = RunResults(
+            run_id        = first_h.run_id or self._run_name(first_fp),
+            wafer_id      = wafer,
+            die_number    = first_h.detector_die_number,
+            lot_number    = first_h.detector_lot_number,
+            instrument_id = first_h.system_id,
+        )
+
+        # Cache headers by filepath for the event-time conversion below
+        header_by_fp = {fp: h for h, fp in headers}
+
+        # Build aggressor entries: one per (file, channel) with segments
+        for filepath, cid, _col, segments in found:
+            if not segments:
+                continue
+            h = header_by_fp.get(filepath)
+            if h is None:
+                try:
+                    h = parse_header(filepath)
+                except Exception:
+                    continue
+
+            first_seg = segments[0]
+            # Wall-clock ISO timestamp of the first event
+            event_dt = TSTMP_EPOCH + timedelta(
+                seconds=h.data_start_time + first_seg["start_sec"])
+            block_key = event_dt.isoformat()
+
+            # Amplitude-weighted mean dominant frequency
+            total_amp = sum(s["amplitude_mv"] for s in segments)
+            if total_amp > 0:
+                dom_freq = sum(s["frequency_hz"] * s["amplitude_mv"]
+                               for s in segments) / total_amp
+            else:
+                dom_freq = first_seg["frequency_hz"]
+
+            # Sum of durations across segments
+            total_time = sum(s["end_sec"] - s["start_sec"] for s in segments)
+
+            # Peak-to-peak amplitude — worst segment
+            amplitude = max(s["amplitude_mv"] for s in segments)
+
+            agg = AggressorBlockResult(
+                total_time_s     = round(total_time, 3),
+                mean_baseline    = first_seg["baseline_mv"],   # pre-event baseline
+                amplitude        = amplitude,
+                dominant_freq_hz = round(dom_freq, 2),
+            )
+            results.aggressors.setdefault(cid, {})[block_key] = agg
+
+        results.to_json(json_path)
 
     # ── Plot on selection ─────────────────────────────────────────────────
 
