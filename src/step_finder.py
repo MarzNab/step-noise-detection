@@ -7,6 +7,7 @@ Standalone GUI application.  Reuses tdd_reader.py from the same src/ folder.
 import sys
 import os
 import glob
+import fnmatch
 import threading
 from datetime import datetime
 
@@ -19,7 +20,9 @@ if sys.stderr is None:
 sys.path.insert(0, os.path.dirname(os.path.abspath(__file__)))
 
 import numpy as np
-from scipy.signal import butter, filtfilt
+from scipy.signal import butter, filtfilt, find_peaks
+from scipy.fft import rfft, irfft, next_fast_len
+from concurrent.futures import ThreadPoolExecutor, as_completed
 import tkinter as tk
 from tkinter import ttk, filedialog, messagebox
 import matplotlib
@@ -32,11 +35,24 @@ from tdd_reader import parse_header, load_data, descramble_channels, TDDHeader
 
 # ── Detection core ────────────────────────────────────────────────────────────
 
-def _bandpass(data: np.ndarray, fs: float, lo: float, hi: float, order: int = 2):
-    """Zero-phase Butterworth bandpass."""
-    nyq = fs / 2.0
-    b, a = butter(order, [lo / nyq, hi / nyq], btype="band")
+def _bandpass(data: np.ndarray, fs: float, lo: float, hi: float, order: int = 2,
+              filter_coefs: tuple | None = None):
+    """Zero-phase Butterworth bandpass. Accepts pre-computed (b, a) for speed."""
+    if filter_coefs is None:
+        nyq = fs / 2.0
+        b, a = butter(order, [lo / nyq, hi / nyq], btype="band")
+    else:
+        b, a = filter_coefs
     return filtfilt(b, a, data)
+
+
+def compute_bandpass_coefs(sample_rate: float, freq_lo: float, freq_hi: float,
+                            order: int = 2):
+    """Return (b, a) matching what find_step_noise would use internally."""
+    nyq = sample_rate / 2.0
+    lo = max(0.5, freq_lo - 1.0) / nyq
+    hi = min(sample_rate / 2 - 1, freq_hi + 5.0) / nyq
+    return butter(order, [lo, hi], btype="band")
 
 
 def find_step_noise(
@@ -49,16 +65,22 @@ def find_step_noise(
     window_sec: float = 10.0,
     overlap: float = 0.5,
     max_gap_sec: float = 30.0,
+    filter_coefs: tuple | None = None,
 ):
     """
     Detect time segments with periodic step noise.
 
     Returns a list of dicts with keys:
         start_sec, end_sec, frequency_hz, amplitude_mv, periodicity
+
+    filter_coefs: optional pre-computed (b, a) from compute_bandpass_coefs().
+        When scanning many channels at the same rate, pass this in to skip
+        re-designing the Butterworth filter per channel.
     """
     # Bandpass isolate the step-noise frequency range (with a little margin)
     filt = _bandpass(channel_uv, sample_rate,
-                     max(0.5, freq_lo - 1.0), min(sample_rate / 2 - 1, freq_hi + 5.0))
+                     max(0.5, freq_lo - 1.0), min(sample_rate / 2 - 1, freq_hi + 5.0),
+                     filter_coefs=filter_coefs)
 
     window_n = int(window_sec * sample_rate)
     step_n = max(1, int(window_n * (1 - overlap)))
@@ -75,11 +97,13 @@ def find_step_noise(
         if pp_mv < min_amplitude_mv:
             continue
 
-        # Autocorrelation to check periodicity
+        # Autocorrelation via FFT (≈100× faster than np.correlate for 20k-sample windows)
         seg_n = seg - seg.mean()
-        ac = np.correlate(seg_n, seg_n, mode="full")
-        ac = ac[len(seg_n) - 1 :]          # positive lags only
-        ac /= ac[0] + 1e-20                # normalise
+        n_pad = next_fast_len(2 * len(seg_n) - 1, real=True)
+        F = rfft(seg_n, n=n_pad)
+        ac_full = irfft(F * F.conj(), n=n_pad)
+        ac = ac_full[: len(seg_n)]          # positive lags only
+        ac /= ac[0] + 1e-20                 # normalise
 
         ac_band = ac[min_lag : max_lag + 1]
         if len(ac_band) == 0:
@@ -103,6 +127,18 @@ def find_step_noise(
             continue
 
         freq = sample_rate / peak_lag
+
+        # Reject single impulses / transients by counting actual oscillations.
+        # A real periodic signal at `freq` Hz will have ~freq * window_sec
+        # positive peaks above a reasonable height. A single spike + ringdown
+        # has only 1-2 peaks even if autocorrelation gets fooled by filter
+        # ringing. Require at least 30% of expected peak count.
+        peak_height = 0.2 * (pp_mv * 1000.0)   # 20% of pp, in µV
+        min_distance = max(1, int(peak_lag * 0.5))
+        peaks, _ = find_peaks(seg, height=peak_height, distance=min_distance)
+        expected_peaks = freq * window_sec
+        if len(peaks) < 0.3 * expected_peaks:
+            continue
 
         raw_hits.append(
             {
@@ -176,8 +212,13 @@ class StepFinderApp:
         self._batch_folder: str | None = None
         self._batch_files: list = []
         self._batch_label: str = ""
-        # Folder-scan: cache of loaded file data for plotting
+        # LRU file cache — bounded by total waveform bytes.
+        # Files load fully while being scanned, then are evicted (oldest first)
+        # once the 8 GB limit is reached. Results remain in the table/reports;
+        # if the user selects a row whose file was evicted, _load_tdd reloads.
         self._file_cache: dict = {}      # filepath -> (header, data, chan_map)
+        self._cache_bytes: int = 0
+        self._MAX_CACHE_BYTES: int = 8 * 1024 ** 3   # 8 GB
 
         self._build_ui()
         self._status("Ready — open a TDD file to begin.")
@@ -195,6 +236,7 @@ class StepFinderApp:
                               accelerator="Ctrl+Shift+O")
         file_menu.add_command(label="Scan Files…", command=self._scan_files)
         file_menu.add_command(label="Scan Folders…", command=self._scan_multi_folders)
+        file_menu.add_command(label="Scan All Runs…", command=self._scan_data_root)
         file_menu.add_separator()
         file_menu.add_command(label="Exit", command=self.root.quit)
         menu.add_cascade(label="File", menu=file_menu)
@@ -275,15 +317,22 @@ class StepFinderApp:
                 "pre_baseline", "post_baseline", "periodicity")
         self.tree = ttk.Treeview(tbl_frame, columns=cols, show="headings",
                                  selectmode="browse")
-        self.tree.heading("file", text="File")
-        self.tree.heading("channel", text="Channel")
-        self.tree.heading("start", text="Start (s)")
-        self.tree.heading("end", text="End (s)")
-        self.tree.heading("freq", text="Freq (Hz)")
-        self.tree.heading("amp", text="Amp (mV)")
-        self.tree.heading("pre_baseline", text="Pre BL (mV)")
-        self.tree.heading("post_baseline", text="Post BL (mV)")
-        self.tree.heading("periodicity", text="Periodicity")
+        col_labels = {
+            "file": "File",
+            "channel": "Channel",
+            "start": "Start (s)",
+            "end": "End (s)",
+            "freq": "Freq (Hz)",
+            "amp": "Amp (mV)",
+            "pre_baseline": "Pre BL (mV)",
+            "post_baseline": "Post BL (mV)",
+            "periodicity": "Periodicity",
+        }
+        self._col_labels = col_labels
+        self._sort_state: dict = {}   # col -> reverse (bool)
+        for cid, label in col_labels.items():
+            self.tree.heading(cid, text=label,
+                              command=lambda c=cid: self._sort_tree(c))
         for c in cols:
             self.tree.column(c, width=85, anchor="center")
         self.tree.column("file", width=180, anchor="w")
@@ -334,14 +383,41 @@ class StepFinderApp:
     # ── File handling ─────────────────────────────────────────────────────
 
     def _load_tdd(self, fp: str):
-        """Load a TDD file and cache it. Returns (header, data, chan_map)."""
+        """Load a TDD file with an LRU byte-bounded cache.
+
+        Cache hit: move to end (mark as most-recently-used) and return.
+        Cache miss: parse + load from disk, then evict oldest entries until
+        the new file fits under self._MAX_CACHE_BYTES.
+        """
+        # Cache hit — touch to mark as MRU
         if fp in self._file_cache:
-            return self._file_cache[fp]
+            entry = self._file_cache.pop(fp)
+            self._file_cache[fp] = entry
+            return entry
+
+        # Cache miss — load from disk
         header = parse_header(fp)
         data, _ = load_data(fp, header)
         chan_map = descramble_channels(header.channel_ids)
+        nbytes = int(getattr(data, "nbytes", 0))
+
+        # If even one file is larger than the limit, still cache it alone
+        # (we evict everything else). This keeps selection-plot working.
+        while (self._cache_bytes + nbytes > self._MAX_CACHE_BYTES
+               and self._file_cache):
+            old_fp, old_entry = next(iter(self._file_cache.items()))
+            del self._file_cache[old_fp]
+            old_bytes = int(getattr(old_entry[1], "nbytes", 0))
+            self._cache_bytes = max(0, self._cache_bytes - old_bytes)
+
         self._file_cache[fp] = (header, data, chan_map)
+        self._cache_bytes += nbytes
         return header, data, chan_map
+
+    def _clear_cache(self):
+        """Drop all cached files and reset the byte counter."""
+        self._file_cache.clear()
+        self._cache_bytes = 0
 
     def _open_file(self):
         fp = filedialog.askopenfilename(
@@ -351,7 +427,7 @@ class StepFinderApp:
         if not fp:
             return
         try:
-            self._file_cache.clear()
+            self._clear_cache()
             header, data, chan_map = self._load_tdd(fp)
             self.header = header
             self.data = data
@@ -535,8 +611,106 @@ class StepFinderApp:
         ttk.Button(btn_frame, text="Cancel", command=dlg.destroy).pack(
             side="right", padx=(0, 6))
 
+    # ── Scan All Runs (recursive data-root scan) ──────────────────────────
+
+    def _scan_data_root(self):
+        """Pick a data root and discover every folder with *Baseline*.tdd files."""
+        root = filedialog.askdirectory(
+            title="Select data root to scan recursively")
+        if not root:
+            return
+
+        self._status(f"Scanning tree under {root}…")
+        self.root.update_idletasks()
+        runs = self._discover_runs(root)
+
+        if not runs:
+            self._status("Ready")
+            messagebox.showinfo(
+                "No runs found",
+                f"No *Baseline*.tdd files found under:\n{root}")
+            return
+
+        self._status(f"Found {len(runs)} run(s) under {root}")
+        self._show_runs_preview(root, runs)
+
+    @staticmethod
+    def _discover_runs(root: str) -> dict:
+        """Walk root recursively; return {run_folder: [tdd_paths...]}."""
+        runs: dict[str, list[str]] = {}
+        for dirpath, _dirnames, filenames in os.walk(
+                root, followlinks=False, onerror=lambda _e: None):
+            matches = sorted(
+                os.path.join(dirpath, f) for f in filenames
+                if fnmatch.fnmatch(f, "*Baseline*.tdd")
+            )
+            if matches:
+                runs[dirpath] = matches
+        return runs
+
+    def _show_runs_preview(self, root: str, runs: dict):
+        """Show discovered runs in a Treeview; user picks which to scan."""
+        dlg = tk.Toplevel(self.root)
+        dlg.title("Discovered Runs")
+        dlg.geometry("820x480")
+        dlg.transient(self.root)
+        dlg.grab_set()
+
+        ttk.Label(dlg,
+                  text=f"Discovered {len(runs)} run(s) under: {root}",
+                  padding=(10, 10, 10, 4)).pack(anchor="w")
+
+        tv_frame = ttk.Frame(dlg, padding=(10, 0, 10, 0))
+        tv_frame.pack(fill="both", expand=True)
+
+        tree = ttk.Treeview(tv_frame, columns=("run", "count"),
+                            show="headings", selectmode="extended")
+        tree.heading("run", text="Run folder")
+        tree.heading("count", text="TDD files")
+        tree.column("run", width=640, anchor="w")
+        tree.column("count", width=80, anchor="center", stretch=False)
+
+        sb = ttk.Scrollbar(tv_frame, orient="vertical", command=tree.yview)
+        tree.configure(yscrollcommand=sb.set)
+        tree.pack(side="left", fill="both", expand=True)
+        sb.pack(side="right", fill="y")
+
+        # Populate; iid = full run-folder path, values = (relpath, count)
+        for dirpath in sorted(runs):
+            rel = os.path.relpath(dirpath, root)
+            if rel == ".":
+                rel = os.path.basename(dirpath.rstrip(os.sep)) or dirpath
+            tree.insert("", "end", iid=dirpath,
+                        values=(rel, len(runs[dirpath])))
+
+        def _remove_selected():
+            for iid in tree.selection():
+                tree.delete(iid)
+
+        def _scan():
+            remaining = tree.get_children()
+            if not remaining:
+                messagebox.showinfo("No runs",
+                                    "No runs left to scan.", parent=dlg)
+                return
+            all_files: list[str] = []
+            for iid in remaining:
+                all_files.extend(runs[iid])
+            dlg.destroy()
+            label = (f"{os.path.basename(root.rstrip(os.sep)) or root} "
+                     f"({len(remaining)} runs)")
+            self._launch_batch_scan(all_files, folder_label=label)
+
+        btn_frame = ttk.Frame(dlg, padding=10)
+        btn_frame.pack(fill="x")
+        ttk.Button(btn_frame, text="Remove Selected",
+                   command=_remove_selected).pack(side="left")
+        ttk.Button(btn_frame, text="Scan", command=_scan).pack(side="right")
+        ttk.Button(btn_frame, text="Cancel", command=dlg.destroy).pack(
+            side="right", padx=(0, 6))
+
     def _launch_batch_scan(self, tdd_files: list, folder_label: str | None = None):
-        self._file_cache.clear()
+        self._clear_cache()
         self.filepath = None
         self.header = None
         self.data = None
@@ -611,24 +785,35 @@ class StepFinderApp:
         flo = self.freq_lo_var.get()
         fhi = self.freq_hi_var.get()
         per = self.per_var.get()
+        gap = self.gap_var.get()
         total_ch = len(chan_map)
         found = []
 
-        for i, cm in enumerate(chan_map):
-            cid, col = cm["cid"], cm["col"]
-            ch_data = data[:, col].astype(np.float64)
+        # Pre-compute filter coefficients once (shared read-only across threads)
+        coefs = compute_bandpass_coefs(header.sample_rate, flo, fhi)
 
-            segments = find_step_noise(
+        def _scan_one(cm):
+            cid_, col_ = cm["cid"], cm["col"]
+            ch_data = data[:, col_].astype(np.float64)
+            segs = find_step_noise(
                 ch_data, header.sample_rate,
                 freq_lo=flo, freq_hi=fhi,
                 min_amplitude_mv=amp, min_periodicity=per,
-                max_gap_sec=self.gap_var.get(),
+                max_gap_sec=gap, filter_coefs=coefs,
             )
-            if segments:
-                found.append((filepath, cid, col, segments))
+            return cid_, col_, segs
 
-            self.root.after(0, self._update_progress, i + 1, total_ch,
-                            f"Ch {cid}")
+        max_workers = min(os.cpu_count() or 1, 8)
+        with ThreadPoolExecutor(max_workers=max_workers) as ex:
+            futures = [ex.submit(_scan_one, cm) for cm in chan_map]
+            done = 0
+            for fut in as_completed(futures):
+                cid, col, segments = fut.result()
+                done += 1
+                if segments:
+                    found.append((filepath, cid, col, segments))
+                self.root.after(0, self._update_progress, done, total_ch,
+                                f"Ch {cid}")
 
         self.root.after(0, self._scan_done, found)
 
@@ -637,9 +822,11 @@ class StepFinderApp:
         flo = self.freq_lo_var.get()
         fhi = self.freq_hi_var.get()
         per = self.per_var.get()
+        gap = self.gap_var.get()
         n_files = len(tdd_files)
         all_found = []
         report_paths = []
+        max_workers = min(os.cpu_count() or 1, 8)
 
         # Group files by source folder, preserving scan order
         folders_ordered = []
@@ -665,30 +852,40 @@ class StepFinderApp:
 
             if chan_map is not None:
                 total_ch = len(chan_map)
-                for ci, cm in enumerate(chan_map):
-                    cid, col = cm["cid"], cm["col"]
-                    ch_data = data[:, col].astype(np.float64)
+                # Pre-compute filter coefficients once per file (shared across threads)
+                coefs = compute_bandpass_coefs(header.sample_rate, flo, fhi)
 
-                    segments = find_step_noise(
-                        ch_data, header.sample_rate,
+                def _scan_one(cm, _fp=fp, _data=data, _fs=header.sample_rate,
+                              _coefs=coefs):
+                    cid_, col_ = cm["cid"], cm["col"]
+                    ch_data = _data[:, col_].astype(np.float64)
+                    segs = find_step_noise(
+                        ch_data, _fs,
                         freq_lo=flo, freq_hi=fhi,
                         min_amplitude_mv=amp, min_periodicity=per,
+                        max_gap_sec=gap, filter_coefs=_coefs,
                     )
-                    if segments:
-                        all_found.append((fp, cid, col, segments))
+                    return _fp, cid_, col_, segs
 
-                    self.root.after(
-                        0, self._update_progress,
-                        fi * total_ch + ci + 1,
-                        n_files * total_ch,
-                        f"{fname}  Ch {cid}",
-                    )
+                with ThreadPoolExecutor(max_workers=max_workers) as ex:
+                    futures = [ex.submit(_scan_one, cm) for cm in chan_map]
+                    ci_done = 0
+                    for fut in as_completed(futures):
+                        file_fp, cid, col, segments = fut.result()
+                        ci_done += 1
+                        if segments:
+                            all_found.append((file_fp, cid, col, segments))
+                        self.root.after(
+                            0, self._update_progress,
+                            fi * total_ch + ci_done,
+                            n_files * total_ch,
+                            f"{fname}  Ch {cid}",
+                        )
 
-                # Free memory (keep only files with hits)
-                hit_fps = {f[0] for f in all_found}
-                for cached_fp in list(self._file_cache.keys()):
-                    if cached_fp != fp and cached_fp not in hit_fps:
-                        del self._file_cache[cached_fp]
+                # Memory is bounded by the 8 GB LRU cache in _load_tdd —
+                # older files are evicted automatically as new ones load.
+                # If the user later selects a row whose file was evicted,
+                # _load_tdd will transparently reload it from disk.
 
             # Write this folder's report once all its files have been scanned
             cur_folder = folders_ordered[folder_idx]
@@ -942,6 +1139,33 @@ class StepFinderApp:
             results.aggressors.setdefault(cid, {})[block_key] = agg
 
         results.to_json(json_path)
+
+    # ── Table sorting ─────────────────────────────────────────────────────
+
+    def _sort_tree(self, col: str):
+        """Sort the results Treeview by a column; toggle direction on re-click."""
+        reverse = self._sort_state.get(col, False)
+        items = [(self.tree.set(iid, col), iid)
+                 for iid in self.tree.get_children("")]
+
+        def _sort_key(pair):
+            v = pair[0]
+            # Try numeric first (handles int and float), fall back to string
+            try:
+                return (0, float(v))
+            except (ValueError, TypeError):
+                return (1, str(v).lower())
+
+        items.sort(key=_sort_key, reverse=reverse)
+
+        for new_idx, (_val, iid) in enumerate(items):
+            self.tree.move(iid, "", new_idx)
+
+        # Flip direction for next click; update header arrow indicator
+        self._sort_state[col] = not reverse
+        arrow = " ▼" if reverse else " ▲"
+        for c, label in self._col_labels.items():
+            self.tree.heading(c, text=label + (arrow if c == col else ""))
 
     # ── Plot on selection ─────────────────────────────────────────────────
 
