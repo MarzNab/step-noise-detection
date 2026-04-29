@@ -4,10 +4,13 @@ regions with periodic step noise (4-20 Hz, configurable amplitude).
 
 Standalone GUI application.  Reuses tdd_reader.py from the same src/ folder.
 """
+__version__ = "1.1.0"
+
 import sys
 import os
 import glob
 import fnmatch
+import json
 import threading
 from datetime import datetime
 
@@ -61,21 +64,30 @@ def find_step_noise(
     freq_lo: float = 4.0,
     freq_hi: float = 20.0,
     min_amplitude_mv: float = 100.0,
-    min_periodicity: float = 0.4,
+    min_periodicity: float = 0.2,
     window_sec: float = 10.0,
     overlap: float = 0.5,
     max_gap_sec: float = 30.0,
     filter_coefs: tuple | None = None,
+    envelope_mode: bool = False,
+    min_peaks_in_window: int = 10,
 ):
     """
     Detect time segments with periodic step noise.
 
-    Returns a list of dicts with keys:
-        start_sec, end_sec, frequency_hz, amplitude_mv, periodicity
+    Two detection modes:
+      Periodic (default): autocorrelation-based, requires the signal to
+        repeat itself (good for clean ~10 Hz step noise).
+      envelope_mode=True: counts peaks in the bandpass signal; flags any
+        window with sustained activity in the band, even if not strictly
+        periodic. Frequency is reported as peaks / window_sec.
 
     filter_coefs: optional pre-computed (b, a) from compute_bandpass_coefs().
         When scanning many channels at the same rate, pass this in to skip
         re-designing the Butterworth filter per channel.
+
+    Returns a list of dicts with keys:
+        start_sec, end_sec, frequency_hz, amplitude_mv, periodicity
     """
     # Bandpass isolate the step-noise frequency range (with a little margin)
     filt = _bandpass(channel_uv, sample_rate,
@@ -97,48 +109,57 @@ def find_step_noise(
         if pp_mv < min_amplitude_mv:
             continue
 
-        # Autocorrelation via FFT (≈100× faster than np.correlate for 20k-sample windows)
-        seg_n = seg - seg.mean()
-        n_pad = next_fast_len(2 * len(seg_n) - 1, real=True)
-        F = rfft(seg_n, n=n_pad)
-        ac_full = irfft(F * F.conj(), n=n_pad)
-        ac = ac_full[: len(seg_n)]          # positive lags only
-        ac /= ac[0] + 1e-20                 # normalise
-
-        ac_band = ac[min_lag : max_lag + 1]
-        if len(ac_band) == 0:
-            continue
-
-        peak_ac = float(ac_band.max())
-        if peak_ac < min_periodicity:
-            continue
-
-        peak_lag = int(np.argmax(ac_band)) + min_lag
-
-        # Reject single level shifts: true periodic signals have autocorrelation
-        # peaks at multiples of the fundamental lag (2x, 3x).  A one-off step
-        # only rings once in the bandpass filter and won't show a 2nd-harmonic peak.
-        lag_2x = 2 * peak_lag
-        if lag_2x < len(ac):
-            ac_2nd = float(ac[lag_2x])
-            if ac_2nd < 0.15:
-                continue
-        else:
-            continue
-
-        freq = sample_rate / peak_lag
-
-        # Reject single impulses / transients by counting actual oscillations.
-        # A real periodic signal at `freq` Hz will have ~freq * window_sec
-        # positive peaks above a reasonable height. A single spike + ringdown
-        # has only 1-2 peaks even if autocorrelation gets fooled by filter
-        # ringing. Require at least 30% of expected peak count.
         peak_height = 0.2 * (pp_mv * 1000.0)   # 20% of pp, in µV
-        min_distance = max(1, int(peak_lag * 0.5))
-        peaks, _ = find_peaks(seg, height=peak_height, distance=min_distance)
-        expected_peaks = freq * window_sec
-        if len(peaks) < 0.3 * expected_peaks:
-            continue
+
+        if envelope_mode:
+            # Envelope mode: skip autocorrelation; just require enough peaks
+            # in the band so single transients don't pass.
+            min_distance = max(1, int(sample_rate / freq_hi * 0.5))
+            peaks, _ = find_peaks(seg, height=peak_height, distance=min_distance)
+            if len(peaks) < min_peaks_in_window:
+                continue
+            # Frequency = peaks per second; clamp to detection band.
+            freq = len(peaks) / window_sec
+            if freq < freq_lo or freq > freq_hi:
+                continue
+            peak_ac = 0.0   # not measured in envelope mode
+        else:
+            # Autocorrelation via FFT (≈100× faster than np.correlate for 20k-sample windows)
+            seg_n = seg - seg.mean()
+            n_pad = next_fast_len(2 * len(seg_n) - 1, real=True)
+            F = rfft(seg_n, n=n_pad)
+            ac_full = irfft(F * F.conj(), n=n_pad)
+            ac = ac_full[: len(seg_n)]          # positive lags only
+            ac /= ac[0] + 1e-20                 # normalise
+
+            ac_band = ac[min_lag : max_lag + 1]
+            if len(ac_band) == 0:
+                continue
+
+            peak_ac = float(ac_band.max())
+            if peak_ac < min_periodicity:
+                continue
+
+            peak_lag = int(np.argmax(ac_band)) + min_lag
+
+            # Reject single level shifts: true periodic signals have
+            # autocorrelation peaks at multiples of the fundamental lag.
+            lag_2x = 2 * peak_lag
+            if lag_2x < len(ac):
+                ac_2nd = float(ac[lag_2x])
+                if ac_2nd < 0.05:
+                    continue
+            else:
+                continue
+
+            freq = sample_rate / peak_lag
+
+            # Reject single impulses / transients by counting actual oscillations.
+            min_distance = max(1, int(peak_lag * 0.5))
+            peaks, _ = find_peaks(seg, height=peak_height, distance=min_distance)
+            expected_peaks = freq * window_sec
+            if len(peaks) < 0.3 * expected_peaks:
+                continue
 
         raw_hits.append(
             {
@@ -167,6 +188,72 @@ def find_step_noise(
             )
         else:
             merged.append(h.copy())
+
+    # Refine segment boundaries — the 5 s window step gives coarse edges.
+    # Walk outward from each end in 2 s sub-windows; commit the extension
+    # whenever the local bandpass peak-to-peak amplitude is at least 30 %
+    # of the segment's own measured amplitude. Tolerate up to ~6 s of
+    # consecutive quiet (3 sub-windows × 2 s) before stopping, so brief
+    # dips in the envelope don't truncate the event.
+    sub_n = max(1, int(2.0 * sample_rate))
+    max_misses = 3   # ~6 s of slack
+    n_filt = len(filt)
+    for seg in merged:
+        s = int(seg["start_sec"] * sample_rate)
+        e = int(seg["end_sec"] * sample_rate)
+        threshold_uv = 0.3 * seg["amplitude_mv"] * 1000.0
+
+        # Walk left, tolerating brief misses
+        misses = 0
+        last_good_s = s
+        cand = s
+        while cand - sub_n >= 0:
+            chunk = filt[cand - sub_n : cand]
+            if (chunk.max() - chunk.min()) < threshold_uv:
+                misses += 1
+                if misses > max_misses:
+                    break
+            else:
+                misses = 0
+                last_good_s = cand - sub_n
+            cand -= sub_n
+        s = last_good_s
+
+        # Walk right, tolerating brief misses
+        misses = 0
+        last_good_e = e
+        cand = e
+        while cand + sub_n <= n_filt:
+            chunk = filt[cand : cand + sub_n]
+            if (chunk.max() - chunk.min()) < threshold_uv:
+                misses += 1
+                if misses > max_misses:
+                    break
+            else:
+                misses = 0
+                last_good_e = cand + sub_n
+            cand += sub_n
+        e = last_good_e
+
+        seg["start_sec"] = s / sample_rate
+        seg["end_sec"] = e / sample_rate
+
+    # After refinement, segments that started apart may now overlap.
+    # Sort and re-merge any that touch or are within max_gap_sec.
+    merged.sort(key=lambda s: s["start_sec"])
+    rerun = [merged[0]]
+    for h in merged[1:]:
+        prev = rerun[-1]
+        if h["start_sec"] - prev["end_sec"] <= max_gap_sec:
+            prev["end_sec"] = max(prev["end_sec"], h["end_sec"])
+            prev["amplitude_mv"] = max(prev["amplitude_mv"], h["amplitude_mv"])
+            prev["periodicity"] = max(prev["periodicity"], h["periodicity"])
+            prev["frequency_hz"] = round(
+                (prev["frequency_hz"] + h["frequency_hz"]) / 2, 1
+            )
+        else:
+            rerun.append(h)
+    merged = rerun
 
     # Compute baselines: max value of raw signal in a window just before
     # and just after each step-noise segment
@@ -198,7 +285,7 @@ class StepFinderApp:
 
     def __init__(self, root: tk.Tk):
         self.root = root
-        root.title("Step Noise Finder")
+        root.title(f"Step Noise Finder  v{__version__}")
         root.geometry("1280x820")
         root.minsize(960, 600)
 
@@ -267,14 +354,18 @@ class StepFinderApp:
                      increment=1, width=5).pack(side="left", padx=(2, 12))
 
         ttk.Label(top, text="Periodicity ≥:").pack(side="left")
-        self.per_var = tk.DoubleVar(value=0.4)
-        ttk.Spinbox(top, textvariable=self.per_var, from_=0.1, to=0.95,
+        self.per_var = tk.DoubleVar(value=0.2)
+        ttk.Spinbox(top, textvariable=self.per_var, from_=0.05, to=0.95,
                      increment=0.05, width=5, format="%.2f").pack(side="left", padx=(2, 12))
 
         ttk.Label(top, text="Gap (s):").pack(side="left")
         self.gap_var = tk.DoubleVar(value=30.0)
         ttk.Spinbox(top, textvariable=self.gap_var, from_=0, to=300,
                      increment=5, width=5).pack(side="left", padx=(2, 12))
+
+        self.envelope_var = tk.BooleanVar(value=False)
+        ttk.Checkbutton(top, text="Envelope mode",
+                        variable=self.envelope_var).pack(side="left", padx=(12, 4))
 
         self.scan_btn = ttk.Button(top, text="Scan All Channels",
                                    command=self._start_scan, state="disabled")
@@ -363,6 +454,59 @@ class StepFinderApp:
         self.status_bar = ttk.Label(self.root, text="", relief="sunken",
                                     anchor="w", padding=2)
         self.status_bar.pack(fill="x", side="bottom")
+
+        # Load saved settings (overrides spinbox defaults), then attach
+        # change-listeners so any tweak gets persisted automatically.
+        self._load_config()
+        for var in (self.amp_var, self.freq_lo_var, self.freq_hi_var,
+                    self.per_var, self.gap_var, self.envelope_var,
+                    self.full_file_var):
+            var.trace_add("write", lambda *_: self._save_config())
+
+    # ── Config persistence ───────────────────────────────────────────────
+
+    def _config_path(self) -> str:
+        """Return path to the user-settings JSON file (next to the app dir)."""
+        app_dir = os.path.dirname(os.path.dirname(os.path.abspath(__file__)))
+        return os.path.join(app_dir, "step_finder_config.json")
+
+    _CONFIG_FIELDS = (
+        ("amp", "amp_var"),
+        ("freq_lo", "freq_lo_var"),
+        ("freq_hi", "freq_hi_var"),
+        ("periodicity", "per_var"),
+        ("gap", "gap_var"),
+        ("envelope_mode", "envelope_var"),
+        ("full_file", "full_file_var"),
+    )
+
+    def _load_config(self):
+        """Load saved settings and apply them to the toolbar Tk vars."""
+        try:
+            with open(self._config_path(), "r") as f:
+                cfg = json.load(f)
+        except (FileNotFoundError, OSError, json.JSONDecodeError):
+            return
+        for key, attr in self._CONFIG_FIELDS:
+            if key in cfg:
+                try:
+                    getattr(self, attr).set(cfg[key])
+                except Exception:
+                    pass
+
+    def _save_config(self):
+        """Persist the current toolbar settings to disk (best-effort)."""
+        cfg = {}
+        for key, attr in self._CONFIG_FIELDS:
+            try:
+                cfg[key] = getattr(self, attr).get()
+            except Exception:
+                continue
+        try:
+            with open(self._config_path(), "w") as f:
+                json.dump(cfg, f, indent=2)
+        except OSError:
+            pass
 
     # ── Helpers ───────────────────────────────────────────────────────────
 
@@ -731,20 +875,29 @@ class StepFinderApp:
     # ── Scanning ──────────────────────────────────────────────────────────
 
     def _start_scan(self):
-        if self._scanning or self.data is None:
+        if self._scanning:
             return
-        self._scanning = True
-        self._batch_folder = os.path.dirname(self.filepath)
-        self._batch_files = [self.filepath]
-        self.scan_btn.config(state="disabled")
-        self.tree.delete(*self.tree.get_children())
-        self.results.clear()
-        self.progress["value"] = 0
-        self.progress["maximum"] = len(self.chan_map)
-        self._start_busy_indicator()
-        threading.Thread(target=self._scan_worker,
-                         args=(self.filepath, self.header, self.data, self.chan_map),
-                         daemon=True).start()
+        # Single-file mode: a TDD was opened via "Open TDD…"
+        if self.data is not None:
+            self._scanning = True
+            self._batch_folder = os.path.dirname(self.filepath)
+            self._batch_files = [self.filepath]
+            self.scan_btn.config(state="disabled")
+            self.tree.delete(*self.tree.get_children())
+            self.results.clear()
+            self.progress["value"] = 0
+            self.progress["maximum"] = len(self.chan_map)
+            self._start_busy_indicator()
+            threading.Thread(
+                target=self._scan_worker,
+                args=(self.filepath, self.header, self.data, self.chan_map),
+                daemon=True,
+            ).start()
+            return
+        # Batch-rescan mode: re-run the most recent batch with current params
+        if self._batch_files:
+            self._launch_batch_scan(self._batch_files,
+                                    folder_label=self._batch_label or None)
 
     def _start_folder_scan(self, tdd_files: list):
         if self._scanning:
@@ -786,6 +939,7 @@ class StepFinderApp:
         fhi = self.freq_hi_var.get()
         per = self.per_var.get()
         gap = self.gap_var.get()
+        envelope = self.envelope_var.get()
         total_ch = len(chan_map)
         found = []
 
@@ -800,6 +954,7 @@ class StepFinderApp:
                 freq_lo=flo, freq_hi=fhi,
                 min_amplitude_mv=amp, min_periodicity=per,
                 max_gap_sec=gap, filter_coefs=coefs,
+                envelope_mode=envelope,
             )
             return cid_, col_, segs
 
@@ -823,8 +978,10 @@ class StepFinderApp:
         fhi = self.freq_hi_var.get()
         per = self.per_var.get()
         gap = self.gap_var.get()
+        envelope = self.envelope_var.get()
         n_files = len(tdd_files)
         all_found = []
+        file_start_times: dict = {}   # filepath -> data_start_time (sec since 1904)
         report_paths = []
         max_workers = min(os.cpu_count() or 1, 8)
 
@@ -852,6 +1009,8 @@ class StepFinderApp:
 
             if chan_map is not None:
                 total_ch = len(chan_map)
+                # Remember when this file started (wall-clock) for cross-file merging
+                file_start_times[fp] = header.data_start_time
                 # Pre-compute filter coefficients once per file (shared across threads)
                 coefs = compute_bandpass_coefs(header.sample_rate, flo, fhi)
 
@@ -864,6 +1023,7 @@ class StepFinderApp:
                         freq_lo=flo, freq_hi=fhi,
                         min_amplitude_mv=amp, min_periodicity=per,
                         max_gap_sec=gap, filter_coefs=_coefs,
+                        envelope_mode=envelope,
                     )
                     return _fp, cid_, col_, segs
 
@@ -894,6 +1054,13 @@ class StepFinderApp:
                 folder_files = folder_to_files[cur_folder]
                 folder_found = [x for x in all_found
                                 if os.path.dirname(x[0]) == cur_folder]
+                # Merge events across files in this folder (same channel, gap < max_gap_sec wall-clock)
+                folder_found = self._merge_across_files(
+                    folder_found, file_start_times, gap)
+                # Replace per-folder slice in all_found with the merged version
+                all_found = ([x for x in all_found
+                              if os.path.dirname(x[0]) != cur_folder]
+                             + folder_found)
                 if folder_found:
                     rp = self._write_report(folder_found, cur_folder, folder_files)
                     if rp:
@@ -905,6 +1072,81 @@ class StepFinderApp:
 
         self.root.after(0, self._scan_done, all_found, report_paths)
 
+    @staticmethod
+    def _merge_across_files(folder_found: list, file_start_times: dict,
+                            max_gap_sec: float) -> list:
+        """Merge segments across files for the same channel within a folder.
+
+        Two segments belong to the same event if their wall-clock gap is
+        within max_gap_sec. The merged event is stored against the first
+        contributing file with start_sec/end_sec measured from that
+        file's start. Time may exceed the first file's duration when an
+        event spans multiple files.
+        """
+        # Group entries by channel
+        by_channel: dict = {}
+        for filepath, cid, col, segments in folder_found:
+            by_channel.setdefault(cid, []).append((filepath, col, segments))
+
+        merged_results = []
+        for cid, items in by_channel.items():
+            # Flatten to per-segment records with wall-clock times
+            recs = []
+            for filepath, col, segments in items:
+                t0 = file_start_times.get(filepath, 0.0)
+                for seg in segments:
+                    recs.append({
+                        "filepath": filepath,
+                        "col": col,
+                        "wall_start": t0 + seg["start_sec"],
+                        "wall_end": t0 + seg["end_sec"],
+                        "seg": seg,
+                    })
+            recs.sort(key=lambda r: r["wall_start"])
+
+            # Walk in order, merging within max_gap_sec
+            i = 0
+            while i < len(recs):
+                grp = [recs[i]]
+                j = i + 1
+                while j < len(recs) and \
+                        recs[j]["wall_start"] - grp[-1]["wall_end"] <= max_gap_sec:
+                    grp.append(recs[j])
+                    j += 1
+
+                first = grp[0]
+                first_t0 = file_start_times.get(first["filepath"], 0.0)
+                wall_start = grp[0]["wall_start"]
+                wall_end = max(r["wall_end"] for r in grp)
+                amps = [r["seg"]["amplitude_mv"] for r in grp]
+                pers = [r["seg"]["periodicity"] for r in grp]
+                freqs = [r["seg"]["frequency_hz"] for r in grp]
+
+                # Pre-baseline: from first segment of first file
+                pre_bl = first["seg"]["baseline_mv"]
+                # Post-baseline: from last segment that has one
+                post_bl = None
+                for r in reversed(grp):
+                    if r["seg"].get("post_baseline_mv") is not None:
+                        post_bl = r["seg"]["post_baseline_mv"]
+                        break
+
+                merged_seg = {
+                    "start_sec": wall_start - first_t0,
+                    "end_sec": wall_end - first_t0,
+                    "frequency_hz": round(sum(freqs) / len(freqs), 1),
+                    "amplitude_mv": round(max(amps), 1),
+                    "baseline_mv": pre_bl,
+                    "post_baseline_mv": post_bl,
+                    "periodicity": round(max(pers), 3),
+                    "n_files": len({r["filepath"] for r in grp}),
+                }
+                merged_results.append(
+                    (first["filepath"], cid, first["col"], [merged_seg]))
+                i = j
+
+        return merged_results
+
     def _update_progress(self, done: int, total: int, label: str):
         self.progress["maximum"] = total
         self.progress["value"] = done
@@ -912,7 +1154,10 @@ class StepFinderApp:
 
     def _scan_done(self, found: list, report_paths: list | None = None):
         self._stop_busy_indicator()
-        self.scan_btn.config(state="normal" if self.data is not None else "disabled")
+        self.scan_btn.config(
+            state="normal" if (self.data is not None or self._batch_files)
+            else "disabled"
+        )
         self.folder_btn.config(state="normal")
         self.results = found
         self.prog_lbl.config(text="")
