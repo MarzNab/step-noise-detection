@@ -4,7 +4,7 @@ regions with periodic step noise (4-20 Hz, configurable amplitude).
 
 Standalone GUI application.  Reuses tdd_reader.py from the same src/ folder.
 """
-__version__ = "1.1.0"
+__version__ = "1.2.0"
 
 import sys
 import os
@@ -192,16 +192,22 @@ def find_step_noise(
     # Refine segment boundaries — the 5 s window step gives coarse edges.
     # Walk outward from each end in 2 s sub-windows; commit the extension
     # whenever the local bandpass peak-to-peak amplitude is at least 30 %
-    # of the segment's own measured amplitude. Tolerate up to ~6 s of
-    # consecutive quiet (3 sub-windows × 2 s) before stopping, so brief
-    # dips in the envelope don't truncate the event.
+    # of the segment's own measured amplitude AND at least the user-set
+    # `min_amplitude_mv` floor. The user-amp floor guarantees the
+    # reported event keeps amplitude above the threshold throughout —
+    # otherwise the relative 30 % rule could leak edges into regions
+    # well below the user's limit. Tolerate up to ~6 s of consecutive
+    # quiet (3 sub-windows × 2 s) before stopping, so brief dips don't
+    # truncate the event.
     sub_n = max(1, int(2.0 * sample_rate))
     max_misses = 3   # ~6 s of slack
     n_filt = len(filt)
+    user_floor_uv = min_amplitude_mv * 1000.0
     for seg in merged:
         s = int(seg["start_sec"] * sample_rate)
         e = int(seg["end_sec"] * sample_rate)
-        threshold_uv = 0.3 * seg["amplitude_mv"] * 1000.0
+        threshold_uv = max(0.3 * seg["amplitude_mv"] * 1000.0,
+                           user_floor_uv)
 
         # Walk left, tolerating brief misses
         misses = 0
@@ -296,6 +302,7 @@ class StepFinderApp:
         self.chan_map: list = []
         self.results: list = []          # list of (cid, col, segments) per file
         self._scanning = False
+        self._stop_event = threading.Event()
         self._batch_folder: str | None = None
         self._batch_files: list = []
         self._batch_label: str = ""
@@ -319,8 +326,6 @@ class StepFinderApp:
         file_menu.add_command(label="Open TDD…", command=self._open_file,
                               accelerator="Ctrl+O")
         file_menu.add_separator()
-        file_menu.add_command(label="Scan Baselines…", command=self._scan_folder,
-                              accelerator="Ctrl+Shift+O")
         file_menu.add_command(label="Scan Files…", command=self._scan_files)
         file_menu.add_command(label="Scan Folders…", command=self._scan_multi_folders)
         file_menu.add_command(label="Scan All Runs…", command=self._scan_data_root)
@@ -374,6 +379,10 @@ class StepFinderApp:
         self.folder_btn = ttk.Button(top, text="Scan Baselines…",
                                      command=self._scan_folder)
         self.folder_btn.pack(side="left", padx=4)
+
+        self.stop_btn = ttk.Button(top, text="Stop",
+                                   command=self._stop_scan, state="disabled")
+        self.stop_btn.pack(side="left", padx=4)
 
         self.full_file_var = tk.BooleanVar(value=False)
         ttk.Checkbutton(top, text="Full file (top plot)",
@@ -914,7 +923,17 @@ class StepFinderApp:
 
     def _start_busy_indicator(self):
         self._busy_dots = 0
+        self._stop_event.clear()
+        self.stop_btn.config(state="normal")
         self._tick_busy_indicator()
+
+    def _stop_scan(self):
+        """Request the current scan to stop at the next safe checkpoint."""
+        if not self._scanning:
+            return
+        self._stop_event.set()
+        self.stop_btn.config(state="disabled")
+        self._status("Stop requested — finishing current channels…")
 
     def _tick_busy_indicator(self):
         if not self._scanning:
@@ -928,6 +947,7 @@ class StepFinderApp:
 
     def _stop_busy_indicator(self):
         self._scanning = False
+        self.stop_btn.config(state="disabled")
         if self._busy_after_id is not None:
             self.root.after_cancel(self._busy_after_id)
             self._busy_after_id = None
@@ -963,6 +983,10 @@ class StepFinderApp:
             futures = [ex.submit(_scan_one, cm) for cm in chan_map]
             done = 0
             for fut in as_completed(futures):
+                if self._stop_event.is_set():
+                    for f in futures:
+                        f.cancel()
+                    break
                 cid, col, segments = fut.result()
                 done += 1
                 if segments:
@@ -999,6 +1023,8 @@ class StepFinderApp:
         files_done_in_folder = 0
 
         for fi, fp in enumerate(tdd_files):
+            if self._stop_event.is_set():
+                break
             fname = self._short_name(fp)
             try:
                 header, data, chan_map = self._load_tdd(fp)
@@ -1031,6 +1057,10 @@ class StepFinderApp:
                     futures = [ex.submit(_scan_one, cm) for cm in chan_map]
                     ci_done = 0
                     for fut in as_completed(futures):
+                        if self._stop_event.is_set():
+                            for f in futures:
+                                f.cancel()
+                            break
                         file_fp, cid, col, segments = fut.result()
                         ci_done += 1
                         if segments:
