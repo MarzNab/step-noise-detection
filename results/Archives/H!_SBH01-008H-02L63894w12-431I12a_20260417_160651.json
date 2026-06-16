@@ -1,0 +1,113 @@
+{
+  "run_id": "20250912_162957-OHMX218-218-1",
+  "wafer_id": 14,
+  "die_number": "D25",
+  "lot_number": "B58270",
+  "instrument_id": "OHMX218",
+  "aggressors": {
+    "8": {
+      "2026-03-18T20:48:27.294633": {
+        "total_time_s": 405.0,
+        "mean_baseline": 1713.6,
+        "amplitude": 325.3,
+        "dominant_freq_hz": 9.03
+      }
+    },
+    "224": {
+      "2026-03-18T20:47:17.294633": {
+        "total_time_s": 45.0,
+        "mean_baseline": 1865.3,
+        "amplitude": 377.7,
+        "dominant_freq_hz": 10.63
+      }
+    },
+    "204": {
+      "2025-09-13T11:50:13.099308": {
+        "total_time_s": 610.0,
+        "mean_baseline": 1570.2,
+        "amplitude": 260.3,
+        "dominant_freq_hz": 4.35
+      }
+    },
+    "155": {
+      "2026-03-27T23:22:00.581237": {
+        "total_time_s": 30.0,
+        "mean_baseline": 1568.0,
+        "amplitude": 217.9,
+        "dominant_freq_hz": 4.72
+      }
+    },
+    "253": {
+      "2026-03-27T23:24:30.581237": {
+        "total_time_s": 320.0,
+        "mean_baseline": 2033.7,
+        "amplitude": 464.0,
+        "dominant_freq_hz": 4.0
+      }
+    },
+    "29": {
+      "2026-03-24T23:42:33.110752": {
+        "total_time_s": 205.0,
+        "mean_baseline": 1610.9,
+        "amplitude": 427.8,
+        "dominant_freq_hz": 14.39
+      }
+    },
+    "30": {
+      "2026-03-25T00:02:18.110752": {
+        "total_time_s": 75.0,
+        "mean_baseline": 1515.6,
+        "amplitude": 277.9,
+        "dominant_freq_hz": 18.35
+      }
+    },
+    "68": {
+      "2026-03-24T23:59:28.110752": {
+        "total_time_s": 130.0,
+        "mean_baseline": 1468.7,
+        "amplitude": 288.1,
+        "dominant_freq_hz": 11.08
+      }
+    },
+    "151": {
+      "2026-03-24T23:58:38.110752": {
+        "total_time_s": 10.0,
+        "mean_baseline": 1552.7,
+        "amplitude": 294.1,
+        "dominant_freq_hz": 4.2
+      }
+    },
+    "164": {
+      "2026-03-24T23:50:28.110752": {
+        "total_time_s": 265.0,
+        "mean_baseline": 1504.1,
+        "amplitude": 273.9,
+        "dominant_freq_hz": 10.12
+      }
+    },
+    "175": {
+      "2026-03-25T00:05:18.110752": {
+        "total_time_s": 55.0,
+        "mean_baseline": 1616.1,
+        "amplitude": 347.6,
+        "dominant_freq_hz": 13.7
+      }
+    },
+    "182": {
+      "2026-03-25T00:02:18.110752": {
+        "total_time_s": 185.0,
+        "mean_baseline": 1559.3,
+        "amplitude": 223.5,
+        "dominant_freq_hz": 14.04
+      }
+    },
+    "217": {
+      "2026-03-24T23:45:38.110752": {
+        "total_time_s": 360.0,
+        "mean_baseline": 1822.9,
+        "amplitude": 229.7,
+        "dominant_freq_hz": 11.04
+      }
+    }
+  }
+}

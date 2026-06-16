@@ -1,0 +1,78 @@
+========================================================================
+  STEP NOISE FINDER — SCAN REPORT
+========================================================================
+
+Date:       2026-04-20 14:51:34
+Folder:     C:/Users/marzoratti/Downloads/Samples_BspQI_BssSI_24385_HAK01-034B-01L903w08-140D14a_2022-09-07_BASELINE_TDD_files
+Files:      36
+            - HAK01-034B-01L903w08-140D14a-UNO-DT-F-Uno140_20220907170727_Baseline.tdd
+            - HAK01-034B-01L903w08-140D14a-UNO-DT-F-Uno140_20220907174406_Baseline.tdd
+            - HAK01-034B-01L903w08-140D14a-UNO-DT-F-Uno140_20220907182045_Baseline.tdd
+            - HAK01-034B-01L903w08-140D14a-UNO-DT-F-Uno140_20220907185724_Baseline.tdd
+            - HAK01-034B-01L903w08-140D14a-UNO-DT-F-Uno140_20220907193403_Baseline.tdd
+            - HAK01-034B-01L903w08-140D14a-UNO-DT-F-Uno140_20220907201042_Baseline.tdd
+            - HAK01-034B-01L903w08-140D14a-UNO-DT-F-Uno140_20220907204721_Baseline.tdd
+            - HAK01-034B-01L903w08-140D14a-UNO-DT-F-Uno140_20220907212401_Baseline.tdd
+            - HAK01-034B-01L903w08-140D14a-UNO-DT-F-Uno140_20220907220040_Baseline.tdd
+            - HAK01-034B-01L903w08-140D14a-UNO-DT-F-Uno140_20220907223719_Baseline.tdd
+            - HAK01-034B-01L903w08-140D14a-UNO-DT-F-Uno140_20220907231358_Baseline.tdd
+            - HAK01-034B-01L903w08-140D14a-UNO-DT-F-Uno140_20220907235037_Baseline.tdd
+            - HAK01-034B-01L903w08-140D14a-UNO-DT-F-Uno140_20220908002717_Baseline.tdd
+            - HAK01-034B-01L903w08-140D14a-UNO-DT-F-Uno140_20220908010356_Baseline.tdd
+            - HAK01-034B-01L903w08-140D14a-UNO-DT-F-Uno140_20220908014036_Baseline.tdd
+            - HAK01-034B-01L903w08-140D14a-UNO-DT-F-Uno140_20220908021716_Baseline.tdd
+            - HAK01-034B-01L903w08-140D14a-UNO-DT-F-Uno140_20220908025355_Baseline.tdd
+            - HAK01-034B-01L903w08-140D14a-UNO-DT-F-Uno140_20220908033035_Baseline.tdd
+            - HAK01-034B-01L903w08-140D14a-UNO-DT-F-Uno140_20220908040714_Baseline.tdd
+            - HAK01-034B-01L903w08-140D14a-UNO-DT-F-Uno140_20220908044353_Baseline.tdd
+            - HAK01-034B-01L903w08-140D14a-UNO-DT-F-Uno140_20220908052033_Baseline.tdd
+            - HAK01-034B-01L903w08-140D14a-UNO-DT-F-Uno140_20220908055712_Baseline.tdd
+            - HAK01-034B-01L903w08-140D14a-UNO-DT-F-Uno140_20220908063352_Baseline.tdd
+            - HAK01-034B-01L903w08-140D14a-UNO-DT-F-Uno140_20220908071031_Baseline.tdd
+            - HAK01-034B-01L903w08-140D14a-UNO-DT-F-Uno140_20220908074711_Baseline.tdd
+            - HAK01-034B-01L903w08-140D14a-UNO-DT-F-Uno140_20220908082352_Baseline.tdd
+            - HAK01-034B-01L903w08-140D14a-UNO-DT-F-Uno140_20220908090031_Baseline.tdd
+            - HAK01-034B-01L903w08-140D14a-UNO-DT-F-Uno140_20220908093711_Baseline.tdd
+            - HAK01-034B-01L903w08-140D14a-UNO-DT-F-Uno140_20220908101351_Baseline.tdd
+            - HAK01-034B-01L903w08-140D14a-UNO-DT-F-Uno140_20220908105030_Baseline.tdd
+            - HAK01-034B-01L903w08-140D14a-UNO-DT-F-Uno140_20220908112710_Baseline.tdd
+            - HAK01-034B-01L903w08-140D14a-UNO-DT-F-Uno140_20220908120351_Baseline.tdd
+            - HAK01-034B-01L903w08-140D14a-UNO-DT-F-Uno140_20220908124031_Baseline.tdd
+            - HAK01-034B-01L903w08-140D14a-UNO-DT-F-Uno140_20220908131711_Baseline.tdd
+            - HAK01-034B-01L903w08-140D14a-UNO-DT-F-Uno140_20220908135352_Baseline.tdd
+            - HAK01-034B-01L903w08-140D14a-UNO-DT-F-Uno140_20220908143032_Baseline.tdd
+
+Parameters:
+  Amplitude  >= 100.0 mV
+  Frequency     4.0 - 20.0 Hz
+  Periodicity >= 0.4
+  Gap merge  <= 30.0 s
+
+========================================================================
+  SUMMARY
+========================================================================
+
+  Channels with step noise: 10
+  Total segments detected:  10
+  Files with detections:    1
+
+========================================================================
+  DETECTIONS
+========================================================================
+
+File               Ch    Start      End   Freq      Amp    PreBL   PostBL  Period
+---------------------------------------------------------------------------------
+20220908093711      9    130.0    145.0    4.0    159.1    861.8    837.1   0.516
+20220908093711     10    130.0    145.0    4.0    264.5    979.6    947.0   0.425
+20220908093711     11    130.0    145.0    4.0    258.3    978.7    946.4   0.446
+20220908093711     12    130.0    145.0    4.0    292.6   1166.4   1129.8   0.471
+20220908093711     13    130.0    145.0    4.0    243.0    916.5    907.6   0.455
+20220908093711     14    130.0    145.0    4.0    239.2   1012.6    979.6   0.484
+20220908093711     15    130.0    145.0    4.0    252.1   1086.2   1049.8   0.481
+20220908093711     16    130.0    145.0    4.0    238.3    995.8    963.8   0.469
+20220908093711     18    130.0    145.0    4.0    205.0    910.1    890.2   0.474
+20220908093711     19    130.0    145.0    4.0    312.0   1145.1   1107.8   0.431
+
+========================================================================
+  End of report
+========================================================================

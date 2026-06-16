@@ -1,0 +1,81 @@
+{
+  "run_id": "20251016_124322-OhmX445-445-1",
+  "wafer_id": 14,
+  "die_number": "F07",
+  "lot_number": "B63894",
+  "instrument_id": "OhmX445",
+  "aggressors": {
+    "117": {
+      "2025-10-16T19:55:41.780637": {
+        "total_time_s": 50.0,
+        "mean_baseline": 1293.9,
+        "amplitude": 237.4,
+        "dominant_freq_hz": 4.2
+      }
+    },
+    "123": {
+      "2025-10-16T19:58:16.780637": {
+        "total_time_s": 10.0,
+        "mean_baseline": 1316.1,
+        "amplitude": 239.8,
+        "dominant_freq_hz": 5.3
+      },
+      "2025-10-16T20:21:40.480637": {
+        "total_time_s": 100.0,
+        "mean_baseline": 1285.5,
+        "amplitude": 251.4,
+        "dominant_freq_hz": 4.6
+      }
+    },
+    "10": {
+      "2025-10-16T22:01:32.980637": {
+        "total_time_s": 80.0,
+        "mean_baseline": 1474.7,
+        "amplitude": 312.7,
+        "dominant_freq_hz": 7.27
+      }
+    },
+    "16": {
+      "2025-10-16T22:25:47.980637": {
+        "total_time_s": 10.0,
+        "mean_baseline": 620.4,
+        "amplitude": 103.2,
+        "dominant_freq_hz": 4.2
+      }
+    },
+    "181": {
+      "2025-10-16T23:12:11.980637": {
+        "total_time_s": 45.0,
+        "mean_baseline": 1357.9,
+        "amplitude": 283.2,
+        "dominant_freq_hz": 4.5
+      },
+      "2025-10-17T00:59:25.680637": {
+        "total_time_s": 60.0,
+        "mean_baseline": 1426.5,
+        "amplitude": 251.2,
+        "dominant_freq_hz": 5.1
+      },
+      "2025-10-17T01:25:19.280637": {
+        "total_time_s": 65.0,
+        "mean_baseline": 1456.2,
+        "amplitude": 201.2,
+        "dominant_freq_hz": 4.8
+      },
+      "2025-10-17T02:03:54.680637": {
+        "total_time_s": 80.0,
+        "mean_baseline": 1487.2,
+        "amplitude": 107.7,
+        "dominant_freq_hz": 4.5
+      }
+    },
+    "245": {
+      "2025-10-17T00:54:25.680637": {
+        "total_time_s": 15.0,
+        "mean_baseline": 1662.9,
+        "amplitude": 278.3,
+        "dominant_freq_hz": 4.8
+      }
+    }
+  }
+}

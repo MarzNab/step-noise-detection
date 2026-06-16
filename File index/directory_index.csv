@@ -1,0 +1,6 @@
+Dataset,Location,Directory,Date,Comments
+2_sets_Plasma,/Volumes/UsersNoBackup/step_noise_investigation/2_sets_Plasma,HAK04-010A-02L66628w06-428E16a,3/27/26,
+2_sets_Plasma,/Volumes/UsersNoBackup/step_noise_investigation/2_sets_Plasma,HAK04-010A-02L66628w06-433C13a,3/27/26,
+Heather\'s Data from 3-27,/Volumes/UsersNoBackup/step_noise_investigation/Heather's Data from 3-27,SBH01-008D-02L66628w02-237D09a,3/27/26,
+,/higgs/Uno256Data/Samples/BspQI_BssSI/24385/,HAK04-008B-02L64869w15-205B16a,4/3/26,
+,/higgs/Uno256Data/Samples/BspQI_BssSI/24385/,HAK04-010A-02L64869w15-428C17a,4/3/26,Had more step noise than run 008B from the same date

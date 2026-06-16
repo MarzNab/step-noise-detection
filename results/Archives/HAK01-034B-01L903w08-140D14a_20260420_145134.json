@@ -1,0 +1,89 @@
+{
+  "run_id": "20220907_161140-UNO-DT-F-Uno140-1",
+  "wafer_id": 8,
+  "die_number": "D14",
+  "lot_number": "B40903",
+  "instrument_id": "UNO-DT-F",
+  "aggressors": {
+    "9": {
+      "2022-09-08T13:39:21.117262": {
+        "total_time_s": 15.0,
+        "mean_baseline": 861.8,
+        "amplitude": 159.1,
+        "dominant_freq_hz": 4.0
+      }
+    },
+    "10": {
+      "2022-09-08T13:39:21.117262": {
+        "total_time_s": 15.0,
+        "mean_baseline": 979.6,
+        "amplitude": 264.5,
+        "dominant_freq_hz": 4.0
+      }
+    },
+    "11": {
+      "2022-09-08T13:39:21.117262": {
+        "total_time_s": 15.0,
+        "mean_baseline": 978.7,
+        "amplitude": 258.3,
+        "dominant_freq_hz": 4.0
+      }
+    },
+    "12": {
+      "2022-09-08T13:39:21.117262": {
+        "total_time_s": 15.0,
+        "mean_baseline": 1166.4,
+        "amplitude": 292.6,
+        "dominant_freq_hz": 4.0
+      }
+    },
+    "13": {
+      "2022-09-08T13:39:21.117262": {
+        "total_time_s": 15.0,
+        "mean_baseline": 916.5,
+        "amplitude": 243.0,
+        "dominant_freq_hz": 4.0
+      }
+    },
+    "14": {
+      "2022-09-08T13:39:21.117262": {
+        "total_time_s": 15.0,
+        "mean_baseline": 1012.6,
+        "amplitude": 239.2,
+        "dominant_freq_hz": 4.0
+      }
+    },
+    "15": {
+      "2022-09-08T13:39:21.117262": {
+        "total_time_s": 15.0,
+        "mean_baseline": 1086.2,
+        "amplitude": 252.1,
+        "dominant_freq_hz": 4.0
+      }
+    },
+    "16": {
+      "2022-09-08T13:39:21.117262": {
+        "total_time_s": 15.0,
+        "mean_baseline": 995.8,
+        "amplitude": 238.3,
+        "dominant_freq_hz": 4.0
+      }
+    },
+    "18": {
+      "2022-09-08T13:39:21.117262": {
+        "total_time_s": 15.0,
+        "mean_baseline": 910.1,
+        "amplitude": 205.0,
+        "dominant_freq_hz": 4.0
+      }
+    },
+    "19": {
+      "2022-09-08T13:39:21.117262": {
+        "total_time_s": 15.0,
+        "mean_baseline": 1145.1,
+        "amplitude": 312.0,
+        "dominant_freq_hz": 4.0
+      }
+    }
+  }
+}

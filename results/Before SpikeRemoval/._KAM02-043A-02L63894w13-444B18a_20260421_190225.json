@@ -1,0 +1,31 @@
+{
+  "run_id": "20251029_161032-OhmX444-444-1",
+  "wafer_id": 5,
+  "die_number": "B18",
+  "lot_number": "B63894",
+  "instrument_id": "OhmX444",
+  "aggressors": {
+    "7": {
+      "2025-10-29T21:58:23.857575": {
+        "total_time_s": 25.0,
+        "mean_baseline": 1336.5,
+        "amplitude": 376.0,
+        "dominant_freq_hz": 14.62
+      }
+    },
+    "13": {
+      "2025-10-29T22:21:28.857575": {
+        "total_time_s": 10.0,
+        "mean_baseline": 1533.0,
+        "amplitude": 387.8,
+        "dominant_freq_hz": 16.7
+      },
+      "2025-10-29T22:46:14.057575": {
+        "total_time_s": 50.0,
+        "mean_baseline": 1514.8,
+        "amplitude": 441.4,
+        "dominant_freq_hz": 9.14
+      }
+    }
+  }
+}

@@ -1,0 +1,101 @@
+========================================================================
+  STEP NOISE FINDER — SCAN REPORT
+========================================================================
+
+Date:       2026-04-21 18:09:08
+Folder:     D:/Data2\Baseline_collection2\KAM02-029C-02L63894w06-432E04a\BASELINE_TDD_files
+Files:      68
+            - ._KAM02-029C-02L63894w06-432E04a-OhmX432-432_20251002132537_Baseline.tdd
+            - ._KAM02-029C-02L63894w06-432E04a-OhmX432-432_20251002133107_Baseline.tdd
+            - ._KAM02-029C-02L63894w06-432E04a-OhmX432-432_20251002140441_Baseline.tdd
+            - ._KAM02-029C-02L63894w06-432E04a-OhmX432-432_20251002143817_Baseline.tdd
+            - ._KAM02-029C-02L63894w06-432E04a-OhmX432-432_20251002151151_Baseline.tdd
+            - ._KAM02-029C-02L63894w06-432E04a-OhmX432-432_20251002154525_Baseline.tdd
+            - ._KAM02-029C-02L63894w06-432E04a-OhmX432-432_20251002161859_Baseline.tdd
+            - ._KAM02-029C-02L63894w06-432E04a-OhmX432-432_20251002165233_Baseline.tdd
+            - ._KAM02-029C-02L63894w06-432E04a-OhmX432-432_20251002172608_Baseline.tdd
+            - ._KAM02-029C-02L63894w06-432E04a-OhmX432-432_20251002175940_Baseline.tdd
+            - ._KAM02-029C-02L63894w06-432E04a-OhmX432-432_20251002183313_Baseline.tdd
+            - ._KAM02-029C-02L63894w06-432E04a-OhmX432-432_20251002190649_Baseline.tdd
+            - ._KAM02-029C-02L63894w06-432E04a-OhmX432-432_20251002194023_Baseline.tdd
+            - ._KAM02-029C-02L63894w06-432E04a-OhmX432-432_20251002201358_Baseline.tdd
+            - ._KAM02-029C-02L63894w06-432E04a-OhmX432-432_20251002204731_Baseline.tdd
+            - ._KAM02-029C-02L63894w06-432E04a-OhmX432-432_20251002212105_Baseline.tdd
+            - ._KAM02-029C-02L63894w06-432E04a-OhmX432-432_20251002215440_Baseline.tdd
+            - ._KAM02-029C-02L63894w06-432E04a-OhmX432-432_20251002222813_Baseline.tdd
+            - ._KAM02-029C-02L63894w06-432E04a-OhmX432-432_20251002230146_Baseline.tdd
+            - ._KAM02-029C-02L63894w06-432E04a-OhmX432-432_20251002233521_Baseline.tdd
+            - ._KAM02-029C-02L63894w06-432E04a-OhmX432-432_20251003000854_Baseline.tdd
+            - ._KAM02-029C-02L63894w06-432E04a-OhmX432-432_20251003004228_Baseline.tdd
+            - ._KAM02-029C-02L63894w06-432E04a-OhmX432-432_20251003011603_Baseline.tdd
+            - ._KAM02-029C-02L63894w06-432E04a-OhmX432-432_20251003014937_Baseline.tdd
+            - ._KAM02-029C-02L63894w06-432E04a-OhmX432-432_20251003022310_Baseline.tdd
+            - ._KAM02-029C-02L63894w06-432E04a-OhmX432-432_20251003025644_Baseline.tdd
+            - ._KAM02-029C-02L63894w06-432E04a-OhmX432-432_20251003033018_Baseline.tdd
+            - ._KAM02-029C-02L63894w06-432E04a-OhmX432-432_20251003040352_Baseline.tdd
+            - ._KAM02-029C-02L63894w06-432E04a-OhmX432-432_20251003043724_Baseline.tdd
+            - ._KAM02-029C-02L63894w06-432E04a-OhmX432-432_20251003051058_Baseline.tdd
+            - ._KAM02-029C-02L63894w06-432E04a-OhmX432-432_20251003054431_Baseline.tdd
+            - ._KAM02-029C-02L63894w06-432E04a-OhmX432-432_20251003061804_Baseline.tdd
+            - ._KAM02-029C-02L63894w06-432E04a-OhmX432-432_20251003065137_Baseline.tdd
+            - ._KAM02-029C-02L63894w06-432E04a-OhmX432-432_20251003072511_Baseline.tdd
+            - KAM02-029C-02L63894w06-432E04a-OhmX432-432_20251002132537_Baseline.tdd
+            - KAM02-029C-02L63894w06-432E04a-OhmX432-432_20251002133107_Baseline.tdd
+            - KAM02-029C-02L63894w06-432E04a-OhmX432-432_20251002140441_Baseline.tdd
+            - KAM02-029C-02L63894w06-432E04a-OhmX432-432_20251002143817_Baseline.tdd
+            - KAM02-029C-02L63894w06-432E04a-OhmX432-432_20251002151151_Baseline.tdd
+            - KAM02-029C-02L63894w06-432E04a-OhmX432-432_20251002154525_Baseline.tdd
+            - KAM02-029C-02L63894w06-432E04a-OhmX432-432_20251002161859_Baseline.tdd
+            - KAM02-029C-02L63894w06-432E04a-OhmX432-432_20251002165233_Baseline.tdd
+            - KAM02-029C-02L63894w06-432E04a-OhmX432-432_20251002172608_Baseline.tdd
+            - KAM02-029C-02L63894w06-432E04a-OhmX432-432_20251002175940_Baseline.tdd
+            - KAM02-029C-02L63894w06-432E04a-OhmX432-432_20251002183313_Baseline.tdd
+            - KAM02-029C-02L63894w06-432E04a-OhmX432-432_20251002190649_Baseline.tdd
+            - KAM02-029C-02L63894w06-432E04a-OhmX432-432_20251002194023_Baseline.tdd
+            - KAM02-029C-02L63894w06-432E04a-OhmX432-432_20251002201358_Baseline.tdd
+            - KAM02-029C-02L63894w06-432E04a-OhmX432-432_20251002204731_Baseline.tdd
+            - KAM02-029C-02L63894w06-432E04a-OhmX432-432_20251002212105_Baseline.tdd
+            - KAM02-029C-02L63894w06-432E04a-OhmX432-432_20251002215440_Baseline.tdd
+            - KAM02-029C-02L63894w06-432E04a-OhmX432-432_20251002222813_Baseline.tdd
+            - KAM02-029C-02L63894w06-432E04a-OhmX432-432_20251002230146_Baseline.tdd
+            - KAM02-029C-02L63894w06-432E04a-OhmX432-432_20251002233521_Baseline.tdd
+            - KAM02-029C-02L63894w06-432E04a-OhmX432-432_20251003000854_Baseline.tdd
+            - KAM02-029C-02L63894w06-432E04a-OhmX432-432_20251003004228_Baseline.tdd
+            - KAM02-029C-02L63894w06-432E04a-OhmX432-432_20251003011603_Baseline.tdd
+            - KAM02-029C-02L63894w06-432E04a-OhmX432-432_20251003014937_Baseline.tdd
+            - KAM02-029C-02L63894w06-432E04a-OhmX432-432_20251003022310_Baseline.tdd
+            - KAM02-029C-02L63894w06-432E04a-OhmX432-432_20251003025644_Baseline.tdd
+            - KAM02-029C-02L63894w06-432E04a-OhmX432-432_20251003033018_Baseline.tdd
+            - KAM02-029C-02L63894w06-432E04a-OhmX432-432_20251003040352_Baseline.tdd
+            - KAM02-029C-02L63894w06-432E04a-OhmX432-432_20251003043724_Baseline.tdd
+            - KAM02-029C-02L63894w06-432E04a-OhmX432-432_20251003051058_Baseline.tdd
+            - KAM02-029C-02L63894w06-432E04a-OhmX432-432_20251003054431_Baseline.tdd
+            - KAM02-029C-02L63894w06-432E04a-OhmX432-432_20251003061804_Baseline.tdd
+            - KAM02-029C-02L63894w06-432E04a-OhmX432-432_20251003065137_Baseline.tdd
+            - KAM02-029C-02L63894w06-432E04a-OhmX432-432_20251003072511_Baseline.tdd
+
+Parameters:
+  Amplitude  >= 100.0 mV
+  Frequency     4.0 - 20.0 Hz
+  Periodicity >= 0.4
+  Gap merge  <= 30.0 s
+
+========================================================================
+  SUMMARY
+========================================================================
+
+  Channels with step noise: 1
+  Total segments detected:  1
+  Files with detections:    1
+
+========================================================================
+  DETECTIONS
+========================================================================
+
+File               Ch    Start      End   Freq      Amp    PreBL   PostBL  Period
+---------------------------------------------------------------------------------
+20251003004228    179    315.0    330.0    6.7    187.7   1389.7   1561.6   0.633
+
+========================================================================
+  End of report
+========================================================================

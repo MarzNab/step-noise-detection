@@ -1,0 +1,17 @@
+{
+  "run_id": "20251014_141946-OhmX438-438-1",
+  "wafer_id": 11,
+  "die_number": "E04",
+  "lot_number": "B64869",
+  "instrument_id": "OhmX438",
+  "aggressors": {
+    "233": {
+      "2025-10-14T21:20:03.957933": {
+        "total_time_s": 115.0,
+        "mean_baseline": 1603.8,
+        "amplitude": 128.2,
+        "dominant_freq_hz": 4.7
+      }
+    }
+  }
+}

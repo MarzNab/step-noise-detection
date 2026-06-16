@@ -1,0 +1,17 @@
+{
+  "run_id": "20251003_123834-OhmX422-422-1",
+  "wafer_id": 14,
+  "die_number": "C14",
+  "lot_number": "B63894",
+  "instrument_id": "OhmX422",
+  "aggressors": {
+    "24": {
+      "2025-10-03T19:50:02.003196": {
+        "total_time_s": 135.0,
+        "mean_baseline": 1529.5,
+        "amplitude": 314.9,
+        "dominant_freq_hz": 10.87
+      }
+    }
+  }
+}

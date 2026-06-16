@@ -1,0 +1,81 @@
+{
+  "run_id": "20251016_160501-OhmX215-UNO256 215-1",
+  "wafer_id": 12,
+  "die_number": "I15",
+  "lot_number": "B64869",
+  "instrument_id": "OhmX215",
+  "aggressors": {
+    "181": {
+      "2025-10-16T22:30:27.406517": {
+        "total_time_s": 205.0,
+        "mean_baseline": 1404.6,
+        "amplitude": 334.1,
+        "dominant_freq_hz": 4.99
+      }
+    },
+    "215": {
+      "2025-10-16T22:55:12.406517": {
+        "total_time_s": 10.0,
+        "mean_baseline": 1592.9,
+        "amplitude": 184.3,
+        "dominant_freq_hz": 16.7
+      }
+    },
+    "98": {
+      "2025-10-17T00:01:12.706517": {
+        "total_time_s": 10.0,
+        "mean_baseline": 1275.2,
+        "amplitude": 127.0,
+        "dominant_freq_hz": 4.0
+      }
+    },
+    "204": {
+      "2025-10-17T02:07:55.806517": {
+        "total_time_s": 25.0,
+        "mean_baseline": 1490.1,
+        "amplitude": 374.8,
+        "dominant_freq_hz": 9.29
+      },
+      "2025-10-17T03:53:50.406517": {
+        "total_time_s": 190.0,
+        "mean_baseline": 1512.1,
+        "amplitude": 244.1,
+        "dominant_freq_hz": 17.25
+      },
+      "2025-10-17T04:10:10.106517": {
+        "total_time_s": 670.0,
+        "mean_baseline": 1459.0,
+        "amplitude": 277.9,
+        "dominant_freq_hz": 12.72
+      }
+    },
+    "122": {
+      "2025-10-17T06:00:07.706517": {
+        "total_time_s": 50.0,
+        "mean_baseline": 1380.2,
+        "amplitude": 156.2,
+        "dominant_freq_hz": 5.3
+      }
+    },
+    "116": {
+      "2025-10-17T06:21:14.606517": {
+        "total_time_s": 10.0,
+        "mean_baseline": 859.3,
+        "amplitude": 147.3,
+        "dominant_freq_hz": 4.5
+      },
+      "2025-10-17T07:07:07.506517": {
+        "total_time_s": 20.0,
+        "mean_baseline": 840.3,
+        "amplitude": 171.8,
+        "dominant_freq_hz": 4.22
+      },
+      "2025-10-17T12:31:59.306517": {
+        "total_time_s": 10.0,
+        "mean_baseline": 751.8,
+        "amplitude": 226.7,
+        "dominant_freq_hz": 11.1
+      }
+    }
+  }
+}

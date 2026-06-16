@@ -1,0 +1,47 @@
+{
+  "run_id": "20251003_153921-OhmX432-432-1",
+  "wafer_id": 5,
+  "die_number": "H07",
+  "lot_number": "B63894",
+  "instrument_id": "OhmX432",
+  "aggressors": {
+    "217": {
+      "2025-10-04T00:48:51.351201": {
+        "total_time_s": 10.0,
+        "mean_baseline": 1413.9,
+        "amplitude": 135.8,
+        "dominant_freq_hz": 20.0
+      },
+      "2025-10-04T01:25:15.051201": {
+        "total_time_s": 20.0,
+        "mean_baseline": 1642.2,
+        "amplitude": 104.3,
+        "dominant_freq_hz": 5.5
+      }
+    },
+    "72": {
+      "2025-10-04T02:02:57.851201": {
+        "total_time_s": 10.0,
+        "mean_baseline": 1296.5,
+        "amplitude": 165.9,
+        "dominant_freq_hz": 4.8
+      }
+    },
+    "209": {
+      "2025-10-04T04:00:52.251201": {
+        "total_time_s": 10.0,
+        "mean_baseline": 805.9,
+        "amplitude": 137.2,
+        "dominant_freq_hz": 5.9
+      }
+    },
+    "166": {
+      "2025-10-04T11:06:16.251201": {
+        "total_time_s": 385.0,
+        "mean_baseline": 1375.0,
+        "amplitude": 166.4,
+        "dominant_freq_hz": 5.34
+      }
+    }
+  }
+}

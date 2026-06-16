@@ -1,0 +1,17 @@
+{
+  "run_id": "20251023_144347-OhmX222-UNO256 222-1",
+  "wafer_id": 21,
+  "die_number": "H21",
+  "lot_number": "B63894",
+  "instrument_id": "OhmX222",
+  "aggressors": {
+    "54": {
+      "2025-10-23T20:12:54.072456": {
+        "total_time_s": 90.0,
+        "mean_baseline": 1496.7,
+        "amplitude": 141.3,
+        "dominant_freq_hz": 10.6
+      }
+    }
+  }
+}

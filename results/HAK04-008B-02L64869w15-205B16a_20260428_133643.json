@@ -1,0 +1,57 @@
+{
+  "run_id": "20260403_152231-OHMX205-UNO256 205-1",
+  "wafer_id": 15,
+  "die_number": "B16",
+  "lot_number": "B64869",
+  "instrument_id": "OHMX205",
+  "aggressors": {
+    "99": {
+      "2026-04-03T22:26:42.889094": {
+        "total_time_s": 79.0,
+        "mean_baseline": 1486.9,
+        "amplitude": 10.3,
+        "dominant_freq_hz": 20.0
+      }
+    },
+    "144": {
+      "2026-04-03T22:24:42.889094": {
+        "total_time_s": 279.0,
+        "mean_baseline": 1546.5,
+        "amplitude": 74.8,
+        "dominant_freq_hz": 20.0
+      }
+    },
+    "150": {
+      "2026-04-03T22:18:30.889094": {
+        "total_time_s": 337.0,
+        "mean_baseline": 604.0,
+        "amplitude": 54.0,
+        "dominant_freq_hz": 20.0
+      }
+    },
+    "180": {
+      "2026-04-03T22:33:45.889094": {
+        "total_time_s": 30.0,
+        "mean_baseline": 1430.7,
+        "amplitude": 10.8,
+        "dominant_freq_hz": 20.0
+      }
+    },
+    "189": {
+      "2026-04-03T22:21:02.889094": {
+        "total_time_s": 126.0,
+        "mean_baseline": 1714.6,
+        "amplitude": 101.6,
+        "dominant_freq_hz": 11.8
+      }
+    },
+    "214": {
+      "2026-04-03T22:24:21.889094": {
+        "total_time_s": 130.0,
+        "mean_baseline": 1437.5,
+        "amplitude": 11.5,
+        "dominant_freq_hz": 20.0
+      }
+    }
+  }
+}

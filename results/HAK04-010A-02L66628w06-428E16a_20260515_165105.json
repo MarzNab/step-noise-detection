@@ -1,0 +1,29 @@
+{
+  "run_id": "20260327_164656-OHX428-428-1",
+  "wafer_id": 6,
+  "die_number": "E16",
+  "lot_number": "B66628",
+  "instrument_id": "OHX428",
+  "aggressors": {
+    "253": {
+      "2026-03-27T23:15:56.581237": {
+        "total_time_s": 152.0,
+        "mean_baseline": 1994.7,
+        "amplitude": 302.6,
+        "dominant_freq_hz": 20.0
+      },
+      "2026-03-27T23:19:09.581237": {
+        "total_time_s": 131.0,
+        "mean_baseline": 1849.1,
+        "amplitude": 333.0,
+        "dominant_freq_hz": 15.6
+      },
+      "2026-03-27T23:22:44.581237": {
+        "total_time_s": 1222.0,
+        "mean_baseline": 1814.1,
+        "amplitude": 446.6,
+        "dominant_freq_hz": 12.0
+      }
+    }
+  }
+}

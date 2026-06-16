@@ -1,0 +1,107 @@
+========================================================================
+  STEP NOISE FINDER — SCAN REPORT
+========================================================================
+
+Date:       2026-04-22 13:27:26
+Folder:     D:/Data2\Baseline_collection2\KAM02-034A-02L64869w11-438E04a\BASELINE_TDD_files
+Files:      74
+            - ._KAM02-034A-02L64869w11-438E04a-OhmX438-438_20251014145844_Baseline.tdd
+            - ._KAM02-034A-02L64869w11-438E04a-OhmX438-438_20251014150417_Baseline.tdd
+            - ._KAM02-034A-02L64869w11-438E04a-OhmX438-438_20251014153751_Baseline.tdd
+            - ._KAM02-034A-02L64869w11-438E04a-OhmX438-438_20251014161126_Baseline.tdd
+            - ._KAM02-034A-02L64869w11-438E04a-OhmX438-438_20251014164501_Baseline.tdd
+            - ._KAM02-034A-02L64869w11-438E04a-OhmX438-438_20251014171835_Baseline.tdd
+            - ._KAM02-034A-02L64869w11-438E04a-OhmX438-438_20251014175210_Baseline.tdd
+            - ._KAM02-034A-02L64869w11-438E04a-OhmX438-438_20251014182545_Baseline.tdd
+            - ._KAM02-034A-02L64869w11-438E04a-OhmX438-438_20251014185919_Baseline.tdd
+            - ._KAM02-034A-02L64869w11-438E04a-OhmX438-438_20251014193252_Baseline.tdd
+            - ._KAM02-034A-02L64869w11-438E04a-OhmX438-438_20251014200629_Baseline.tdd
+            - ._KAM02-034A-02L64869w11-438E04a-OhmX438-438_20251014204004_Baseline.tdd
+            - ._KAM02-034A-02L64869w11-438E04a-OhmX438-438_20251014211338_Baseline.tdd
+            - ._KAM02-034A-02L64869w11-438E04a-OhmX438-438_20251014214711_Baseline.tdd
+            - ._KAM02-034A-02L64869w11-438E04a-OhmX438-438_20251014222046_Baseline.tdd
+            - ._KAM02-034A-02L64869w11-438E04a-OhmX438-438_20251014225422_Baseline.tdd
+            - ._KAM02-034A-02L64869w11-438E04a-OhmX438-438_20251014232757_Baseline.tdd
+            - ._KAM02-034A-02L64869w11-438E04a-OhmX438-438_20251015000132_Baseline.tdd
+            - ._KAM02-034A-02L64869w11-438E04a-OhmX438-438_20251015003508_Baseline.tdd
+            - ._KAM02-034A-02L64869w11-438E04a-OhmX438-438_20251015010843_Baseline.tdd
+            - ._KAM02-034A-02L64869w11-438E04a-OhmX438-438_20251015014218_Baseline.tdd
+            - ._KAM02-034A-02L64869w11-438E04a-OhmX438-438_20251015021554_Baseline.tdd
+            - ._KAM02-034A-02L64869w11-438E04a-OhmX438-438_20251015024930_Baseline.tdd
+            - ._KAM02-034A-02L64869w11-438E04a-OhmX438-438_20251015032304_Baseline.tdd
+            - ._KAM02-034A-02L64869w11-438E04a-OhmX438-438_20251015035638_Baseline.tdd
+            - ._KAM02-034A-02L64869w11-438E04a-OhmX438-438_20251015043013_Baseline.tdd
+            - ._KAM02-034A-02L64869w11-438E04a-OhmX438-438_20251015050346_Baseline.tdd
+            - ._KAM02-034A-02L64869w11-438E04a-OhmX438-438_20251015053720_Baseline.tdd
+            - ._KAM02-034A-02L64869w11-438E04a-OhmX438-438_20251015061054_Baseline.tdd
+            - ._KAM02-034A-02L64869w11-438E04a-OhmX438-438_20251015064429_Baseline.tdd
+            - ._KAM02-034A-02L64869w11-438E04a-OhmX438-438_20251015071803_Baseline.tdd
+            - ._KAM02-034A-02L64869w11-438E04a-OhmX438-438_20251015075137_Baseline.tdd
+            - ._KAM02-034A-02L64869w11-438E04a-OhmX438-438_20251015082511_Baseline.tdd
+            - ._KAM02-034A-02L64869w11-438E04a-OhmX438-438_20251015085844_Baseline.tdd
+            - ._KAM02-034A-02L64869w11-438E04a-OhmX438-438_20251015093216_Baseline.tdd
+            - ._KAM02-034A-02L64869w11-438E04a-OhmX438-438_20251015100548_Baseline.tdd
+            - ._KAM02-034A-02L64869w11-438E04a-OhmX438-438_20251015103920_Baseline.tdd
+            - KAM02-034A-02L64869w11-438E04a-OhmX438-438_20251014145844_Baseline.tdd
+            - KAM02-034A-02L64869w11-438E04a-OhmX438-438_20251014150417_Baseline.tdd
+            - KAM02-034A-02L64869w11-438E04a-OhmX438-438_20251014153751_Baseline.tdd
+            - KAM02-034A-02L64869w11-438E04a-OhmX438-438_20251014161126_Baseline.tdd
+            - KAM02-034A-02L64869w11-438E04a-OhmX438-438_20251014164501_Baseline.tdd
+            - KAM02-034A-02L64869w11-438E04a-OhmX438-438_20251014171835_Baseline.tdd
+            - KAM02-034A-02L64869w11-438E04a-OhmX438-438_20251014175210_Baseline.tdd
+            - KAM02-034A-02L64869w11-438E04a-OhmX438-438_20251014182545_Baseline.tdd
+            - KAM02-034A-02L64869w11-438E04a-OhmX438-438_20251014185919_Baseline.tdd
+            - KAM02-034A-02L64869w11-438E04a-OhmX438-438_20251014193252_Baseline.tdd
+            - KAM02-034A-02L64869w11-438E04a-OhmX438-438_20251014200629_Baseline.tdd
+            - KAM02-034A-02L64869w11-438E04a-OhmX438-438_20251014204004_Baseline.tdd
+            - KAM02-034A-02L64869w11-438E04a-OhmX438-438_20251014211338_Baseline.tdd
+            - KAM02-034A-02L64869w11-438E04a-OhmX438-438_20251014214711_Baseline.tdd
+            - KAM02-034A-02L64869w11-438E04a-OhmX438-438_20251014222046_Baseline.tdd
+            - KAM02-034A-02L64869w11-438E04a-OhmX438-438_20251014225422_Baseline.tdd
+            - KAM02-034A-02L64869w11-438E04a-OhmX438-438_20251014232757_Baseline.tdd
+            - KAM02-034A-02L64869w11-438E04a-OhmX438-438_20251015000132_Baseline.tdd
+            - KAM02-034A-02L64869w11-438E04a-OhmX438-438_20251015003508_Baseline.tdd
+            - KAM02-034A-02L64869w11-438E04a-OhmX438-438_20251015010843_Baseline.tdd
+            - KAM02-034A-02L64869w11-438E04a-OhmX438-438_20251015014218_Baseline.tdd
+            - KAM02-034A-02L64869w11-438E04a-OhmX438-438_20251015021554_Baseline.tdd
+            - KAM02-034A-02L64869w11-438E04a-OhmX438-438_20251015024930_Baseline.tdd
+            - KAM02-034A-02L64869w11-438E04a-OhmX438-438_20251015032304_Baseline.tdd
+            - KAM02-034A-02L64869w11-438E04a-OhmX438-438_20251015035638_Baseline.tdd
+            - KAM02-034A-02L64869w11-438E04a-OhmX438-438_20251015043013_Baseline.tdd
+            - KAM02-034A-02L64869w11-438E04a-OhmX438-438_20251015050346_Baseline.tdd
+            - KAM02-034A-02L64869w11-438E04a-OhmX438-438_20251015053720_Baseline.tdd
+            - KAM02-034A-02L64869w11-438E04a-OhmX438-438_20251015061054_Baseline.tdd
+            - KAM02-034A-02L64869w11-438E04a-OhmX438-438_20251015064429_Baseline.tdd
+            - KAM02-034A-02L64869w11-438E04a-OhmX438-438_20251015071803_Baseline.tdd
+            - KAM02-034A-02L64869w11-438E04a-OhmX438-438_20251015075137_Baseline.tdd
+            - KAM02-034A-02L64869w11-438E04a-OhmX438-438_20251015082511_Baseline.tdd
+            - KAM02-034A-02L64869w11-438E04a-OhmX438-438_20251015085844_Baseline.tdd
+            - KAM02-034A-02L64869w11-438E04a-OhmX438-438_20251015093216_Baseline.tdd
+            - KAM02-034A-02L64869w11-438E04a-OhmX438-438_20251015100548_Baseline.tdd
+            - KAM02-034A-02L64869w11-438E04a-OhmX438-438_20251015103920_Baseline.tdd
+
+Parameters:
+  Amplitude  >= 100.0 mV
+  Frequency     4.0 - 20.0 Hz
+  Periodicity >= 0.4
+  Gap merge  <= 30.0 s
+
+========================================================================
+  SUMMARY
+========================================================================
+
+  Channels with step noise: 1
+  Total segments detected:  1
+  Files with detections:    1
+
+========================================================================
+  DETECTIONS
+========================================================================
+
+File               Ch    Start      End   Freq      Amp    PreBL   PostBL  Period
+---------------------------------------------------------------------------------
+20251014175210    233   1685.0   1800.0    4.7    128.2   1603.8   1552.1   0.691
+
+========================================================================
+  End of report
+========================================================================

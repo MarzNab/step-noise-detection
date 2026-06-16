@@ -1,0 +1,95 @@
+{
+  "run_id": "20251002_121902-OhmX237-237-1",
+  "wafer_id": 7,
+  "die_number": "E24",
+  "lot_number": "B63894",
+  "instrument_id": "OhmX237",
+  "aggressors": {
+    "143": {
+      "2025-10-02T20:28:06.022175": {
+        "total_time_s": 135.0,
+        "mean_baseline": 1371.1,
+        "amplitude": 263.7,
+        "dominant_freq_hz": 4.46
+      },
+      "2025-10-02T23:42:01.422175": {
+        "total_time_s": 235.0,
+        "mean_baseline": 1341.4,
+        "amplitude": 299.6,
+        "dominant_freq_hz": 8.51
+      }
+    },
+    "105": {
+      "2025-10-02T21:00:00.222175": {
+        "total_time_s": 30.0,
+        "mean_baseline": 1260.3,
+        "amplitude": 219.6,
+        "dominant_freq_hz": 4.79
+      },
+      "2025-10-02T21:25:54.622175": {
+        "total_time_s": 270.0,
+        "mean_baseline": 1302.3,
+        "amplitude": 257.9,
+        "dominant_freq_hz": 6.32
+      },
+      "2025-10-02T21:59:45.322175": {
+        "total_time_s": 290.0,
+        "mean_baseline": 1295.4,
+        "amplitude": 156.3,
+        "dominant_freq_hz": 4.2
+      }
+    },
+    "197": {
+      "2025-10-02T20:57:10.222175": {
+        "total_time_s": 25.0,
+        "mean_baseline": 1436.1,
+        "amplitude": 134.9,
+        "dominant_freq_hz": 4.76
+      }
+    },
+    "114": {
+      "2025-10-02T22:35:51.022175": {
+        "total_time_s": 185.0,
+        "mean_baseline": 1317.7,
+        "amplitude": 201.0,
+        "dominant_freq_hz": 5.5
+      },
+      "2025-10-02T23:13:05.922175": {
+        "total_time_s": 285.0,
+        "mean_baseline": 1308.1,
+        "amplitude": 237.1,
+        "dominant_freq_hz": 4.39
+      }
+    },
+    "177": {
+      "2025-10-02T23:39:26.422175": {
+        "total_time_s": 60.0,
+        "mean_baseline": 1385.1,
+        "amplitude": 250.3,
+        "dominant_freq_hz": 9.15
+      },
+      "2025-10-03T00:12:37.322175": {
+        "total_time_s": 200.0,
+        "mean_baseline": 1398.6,
+        "amplitude": 301.5,
+        "dominant_freq_hz": 4.8
+      }
+    },
+    "240": {
+      "2025-10-03T01:56:49.122175": {
+        "total_time_s": 315.0,
+        "mean_baseline": 1671.1,
+        "amplitude": 253.5,
+        "dominant_freq_hz": 4.77
+      }
+    },
+    "253": {
+      "2025-10-03T05:22:40.822175": {
+        "total_time_s": 830.0,
+        "mean_baseline": 1724.0,
+        "amplitude": 129.7,
+        "dominant_freq_hz": 13.21
+      }
+    }
+  }
+}
