@@ -1,0 +1,31 @@
+{
+  "run_id": "20250930_112011-OhmX225-225-1",
+  "wafer_id": 15,
+  "die_number": "H24",
+  "lot_number": "B63894",
+  "instrument_id": "OhmX225",
+  "aggressors": {
+    "150": {
+      "2025-09-30T20:31:38.118397": {
+        "total_time_s": 50.0,
+        "mean_baseline": 1332.5,
+        "amplitude": 148.6,
+        "dominant_freq_hz": 4.8
+      }
+    },
+    "16": {
+      "2025-09-30T23:01:37.718397": {
+        "total_time_s": 20.0,
+        "mean_baseline": 1512.8,
+        "amplitude": 271.3,
+        "dominant_freq_hz": 12.5
+      },
+      "2025-10-01T09:23:08.818398": {
+        "total_time_s": 390.0,
+        "mean_baseline": 1484.2,
+        "amplitude": 313.9,
+        "dominant_freq_hz": 12.78
+      }
+    }
+  }
+}

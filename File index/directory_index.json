@@ -1,0 +1,37 @@
+[
+  {
+    "Dataset": "2_sets_Plasma",
+    "Location": "/Volumes/UsersNoBackup/step_noise_investigation/2_sets_Plasma",
+    "Directory": "HAK04-010A-02L66628w06-428E16a",
+    "Date": "3/27/26",
+    "Comments": ""
+  },
+  {
+    "Dataset": "2_sets_Plasma",
+    "Location": "/Volumes/UsersNoBackup/step_noise_investigation/2_sets_Plasma",
+    "Directory": "HAK04-010A-02L66628w06-433C13a",
+    "Date": "3/27/26",
+    "Comments": ""
+  },
+  {
+    "Dataset": "Heather's Data from 3-27",
+    "Location": "/Volumes/UsersNoBackup/step_noise_investigation/Heather's Data from 3-27",
+    "Directory": "SBH01-008D-02L66628w02-237D09a",
+    "Date": "3/27/26",
+    "Comments": ""
+  },
+  {
+    "Dataset": "",
+    "Location": "/higgs/Uno256Data/Samples/BspQI_BssSI/24385/",
+    "Directory": "HAK04-008B-02L64869w15-205B16a",
+    "Date": "4/3/26",
+    "Comments": ""
+  },
+  {
+    "Dataset": "",
+    "Location": "/higgs/Uno256Data/Samples/BspQI_BssSI/24385/",
+    "Directory": "HAK04-010A-02L64869w15-428C17a",
+    "Date": "4/3/26",
+    "Comments": "Had more step noise than run 008B from the same date"
+  }
+]

@@ -1,0 +1,17 @@
+{
+  "run_id": "20260403_152231-OHMX205-UNO256 205-1",
+  "wafer_id": 15,
+  "die_number": "B16",
+  "lot_number": "B64869",
+  "instrument_id": "OHMX205",
+  "aggressors": {
+    "199": {
+      "2026-04-03T23:35:14.489094": {
+        "total_time_s": 10.0,
+        "mean_baseline": 1308.8,
+        "amplitude": 26.7,
+        "dominant_freq_hz": 5.9
+      }
+    }
+  }
+}

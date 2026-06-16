@@ -1,0 +1,209 @@
+{
+  "run_id": "20260406_165314-OHMX201-UNO256 201-1",
+  "wafer_id": 1,
+  "die_number": "H10",
+  "lot_number": "B66628",
+  "instrument_id": "OHMX201",
+  "aggressors": {
+    "26": {
+      "2026-04-06T21:31:15.872986": {
+        "total_time_s": 145.0,
+        "mean_baseline": 1396.0,
+        "amplitude": 230.7,
+        "dominant_freq_hz": 6.16
+      },
+      "2026-04-06T22:04:16.072986": {
+        "total_time_s": 15.0,
+        "mean_baseline": 1441.7,
+        "amplitude": 154.5,
+        "dominant_freq_hz": 5.9
+      },
+      "2026-04-07T00:50:39.272986": {
+        "total_time_s": 360.0,
+        "mean_baseline": 1320.1,
+        "amplitude": 227.1,
+        "dominant_freq_hz": 10.53
+      },
+      "2026-04-07T01:18:22.772986": {
+        "total_time_s": 205.0,
+        "mean_baseline": 1149.6,
+        "amplitude": 361.8,
+        "dominant_freq_hz": 5.49
+      },
+      "2026-04-07T01:46:12.672986": {
+        "total_time_s": 60.0,
+        "mean_baseline": 1409.2,
+        "amplitude": 210.9,
+        "dominant_freq_hz": 15.85
+      }
+    },
+    "36": {
+      "2026-04-06T21:24:25.872986": {
+        "total_time_s": 795.0,
+        "mean_baseline": 1360.4,
+        "amplitude": 300.0,
+        "dominant_freq_hz": 6.3
+      }
+    },
+    "37": {
+      "2026-04-06T21:31:35.872986": {
+        "total_time_s": 10.0,
+        "mean_baseline": 1392.6,
+        "amplitude": 179.8,
+        "dominant_freq_hz": 11.1
+      },
+      "2026-04-07T00:41:24.272986": {
+        "total_time_s": 80.0,
+        "mean_baseline": 1389.2,
+        "amplitude": 224.1,
+        "dominant_freq_hz": 4.11
+      }
+    },
+    "170": {
+      "2026-04-06T22:30:05.172986": {
+        "total_time_s": 30.0,
+        "mean_baseline": 1278.6,
+        "amplitude": 260.0,
+        "dominant_freq_hz": 10.35
+      },
+      "2026-04-06T23:12:44.072986": {
+        "total_time_s": 165.0,
+        "mean_baseline": 1431.6,
+        "amplitude": 212.3,
+        "dominant_freq_hz": 12.82
+      }
+    },
+    "188": {
+      "2026-04-06T22:37:05.172986": {
+        "total_time_s": 175.0,
+        "mean_baseline": 1397.2,
+        "amplitude": 243.4,
+        "dominant_freq_hz": 8.49
+      },
+      "2026-04-06T23:10:54.072986": {
+        "total_time_s": 370.0,
+        "mean_baseline": 1429.5,
+        "amplitude": 208.0,
+        "dominant_freq_hz": 10.41
+      }
+    },
+    "134": {
+      "2026-04-06T23:09:19.072986": {
+        "total_time_s": 55.0,
+        "mean_baseline": 1302.0,
+        "amplitude": 376.6,
+        "dominant_freq_hz": 15.9
+      },
+      "2026-04-07T01:28:42.772986": {
+        "total_time_s": 10.0,
+        "mean_baseline": 1284.1,
+        "amplitude": 102.6,
+        "dominant_freq_hz": 4.0
+      }
+    },
+    "253": {
+      "2026-04-06T23:47:19.672986": {
+        "total_time_s": 220.0,
+        "mean_baseline": 1653.1,
+        "amplitude": 282.2,
+        "dominant_freq_hz": 5.0
+      }
+    },
+    "80": {
+      "2026-04-07T00:18:29.272986": {
+        "total_time_s": 165.0,
+        "mean_baseline": 1324.1,
+        "amplitude": 318.6,
+        "dominant_freq_hz": 12.69
+      },
+      "2026-04-07T01:50:37.672986": {
+        "total_time_s": 160.0,
+        "mean_baseline": 1359.6,
+        "amplitude": 271.1,
+        "dominant_freq_hz": 18.18
+      }
+    },
+    "109": {
+      "2026-04-07T00:04:14.272986": {
+        "total_time_s": 30.0,
+        "mean_baseline": 1274.3,
+        "amplitude": 157.1,
+        "dominant_freq_hz": 18.8
+      }
+    },
+    "161": {
+      "2026-04-07T00:02:39.272986": {
+        "total_time_s": 15.0,
+        "mean_baseline": 1383.6,
+        "amplitude": 134.6,
+        "dominant_freq_hz": 5.3
+      }
+    },
+    "65": {
+      "2026-04-07T02:18:52.772986": {
+        "total_time_s": 305.0,
+        "mean_baseline": 1333.9,
+        "amplitude": 325.8,
+        "dominant_freq_hz": 10.97
+      }
+    },
+    "122": {
+      "2026-04-07T02:33:47.772986": {
+        "total_time_s": 160.0,
+        "mean_baseline": 1418.9,
+        "amplitude": 183.7,
+        "dominant_freq_hz": 16.4
+      }
+    },
+    "58": {
+      "2026-04-07T03:39:16.672986": {
+        "total_time_s": 10.0,
+        "mean_baseline": 1375.5,
+        "amplitude": 128.8,
+        "dominant_freq_hz": 9.1
+      },
+      "2026-04-07T04:33:49.372986": {
+        "total_time_s": 75.0,
+        "mean_baseline": 1500.6,
+        "amplitude": 305.7,
+        "dominant_freq_hz": 4.74
+      },
+      "2026-04-07T05:03:38.572986": {
+        "total_time_s": 80.0,
+        "mean_baseline": 1381.1,
+        "amplitude": 283.9,
+        "dominant_freq_hz": 4.5
+      },
+      "2026-04-07T05:37:22.972986": {
+        "total_time_s": 45.0,
+        "mean_baseline": 1377.4,
+        "amplitude": 218.9,
+        "dominant_freq_hz": 4.5
+      }
+    },
+    "245": {
+      "2026-04-07T08:30:54.072986": {
+        "total_time_s": 455.0,
+        "mean_baseline": 1734.6,
+        "amplitude": 145.9,
+        "dominant_freq_hz": 8.81
+      }
+    },
+    "219": {
+      "2026-04-07T13:17:57.972986": {
+        "total_time_s": 10.0,
+        "mean_baseline": 1892.7,
+        "amplitude": 103.8,
+        "dominant_freq_hz": 20.0
+      }
+    },
+    "256": {
+      "2026-04-07T13:17:57.972986": {
+        "total_time_s": 10.0,
+        "mean_baseline": 2198.2,
+        "amplitude": 100.1,
+        "dominant_freq_hz": 20.0
+      }
+    }
+  }
+}

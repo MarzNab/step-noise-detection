@@ -1,0 +1,93 @@
+{
+  "run_id": "20260406_165241-OHMX205-UNO256 205-1",
+  "wafer_id": 1,
+  "die_number": "E29",
+  "lot_number": "B66628",
+  "instrument_id": "OHMX205",
+  "aggressors": {
+    "20": {
+      "2026-04-06T20:49:00.189094": {
+        "total_time_s": 175.0,
+        "mean_baseline": 1418.8,
+        "amplitude": 313.6,
+        "dominant_freq_hz": 16.95
+      },
+      "2026-04-06T21:17:34.389094": {
+        "total_time_s": 10.0,
+        "mean_baseline": 1382.5,
+        "amplitude": 224.1,
+        "dominant_freq_hz": 4.5
+      }
+    },
+    "197": {
+      "2026-04-06T20:42:45.189094": {
+        "total_time_s": 10.0,
+        "mean_baseline": 1445.7,
+        "amplitude": 231.6,
+        "dominant_freq_hz": 4.0
+      }
+    },
+    "39": {
+      "2026-04-06T21:18:14.389094": {
+        "total_time_s": 135.0,
+        "mean_baseline": 1296.5,
+        "amplitude": 316.0,
+        "dominant_freq_hz": 6.9
+      }
+    },
+    "68": {
+      "2026-04-06T23:58:21.389094": {
+        "total_time_s": 120.0,
+        "mean_baseline": 1415.6,
+        "amplitude": 224.6,
+        "dominant_freq_hz": 8.24
+      }
+    },
+    "73": {
+      "2026-04-06T23:58:56.389094": {
+        "total_time_s": 20.0,
+        "mean_baseline": 1409.7,
+        "amplitude": 146.7,
+        "dominant_freq_hz": 12.2
+      }
+    },
+    "160": {
+      "2026-04-07T01:10:44.489094": {
+        "total_time_s": 35.0,
+        "mean_baseline": 1508.9,
+        "amplitude": 361.7,
+        "dominant_freq_hz": 6.71
+      }
+    },
+    "43": {
+      "2026-04-07T02:14:35.289094": {
+        "total_time_s": 125.0,
+        "mean_baseline": 1537.5,
+        "amplitude": 234.2,
+        "dominant_freq_hz": 5.62
+      }
+    },
+    "71": {
+      "2026-04-07T02:45:39.389094": {
+        "total_time_s": 15.0,
+        "mean_baseline": 1431.4,
+        "amplitude": 118.2,
+        "dominant_freq_hz": 5.6
+      }
+    },
+    "61": {
+      "2026-04-07T03:18:53.689094": {
+        "total_time_s": 60.0,
+        "mean_baseline": 1436.4,
+        "amplitude": 239.3,
+        "dominant_freq_hz": 10.1
+      },
+      "2026-04-07T03:49:53.689094": {
+        "total_time_s": 110.0,
+        "mean_baseline": 1339.1,
+        "amplitude": 155.0,
+        "dominant_freq_hz": 6.9
+      }
+    }
+  }
+}

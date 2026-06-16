@@ -1,0 +1,33 @@
+{
+  "run_id": "20250924_143401-OhmX215-UNO256 215-1",
+  "wafer_id": 3,
+  "die_number": "F12",
+  "lot_number": "B63894",
+  "instrument_id": "OhmX215",
+  "aggressors": {
+    "43": {
+      "2025-09-24T20:44:57.906517": {
+        "total_time_s": 35.0,
+        "mean_baseline": 1311.9,
+        "amplitude": 278.2,
+        "dominant_freq_hz": 4.2
+      }
+    },
+    "53": {
+      "2025-09-25T00:07:19.806517": {
+        "total_time_s": 50.0,
+        "mean_baseline": 1295.0,
+        "amplitude": 235.3,
+        "dominant_freq_hz": 16.5
+      }
+    },
+    "22": {
+      "2025-09-25T08:57:44.506517": {
+        "total_time_s": 15.0,
+        "mean_baseline": 1425.7,
+        "amplitude": 144.8,
+        "dominant_freq_hz": 6.1
+      }
+    }
+  }
+}

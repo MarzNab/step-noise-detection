@@ -1,0 +1,31 @@
+{
+  "run_id": "20251001_115733-OhmX237-237-1",
+  "wafer_id": 6,
+  "die_number": "D09",
+  "lot_number": "B63894",
+  "instrument_id": "OhmX237",
+  "aggressors": {
+    "115": {
+      "2025-10-02T01:22:04.622175": {
+        "total_time_s": 225.0,
+        "mean_baseline": 1342.4,
+        "amplitude": 151.7,
+        "dominant_freq_hz": 4.15
+      },
+      "2025-10-02T01:57:00.522175": {
+        "total_time_s": 290.0,
+        "mean_baseline": 1347.1,
+        "amplitude": 119.5,
+        "dominant_freq_hz": 4.0
+      }
+    },
+    "215": {
+      "2025-10-02T02:47:37.222175": {
+        "total_time_s": 15.0,
+        "mean_baseline": 1688.1,
+        "amplitude": 194.9,
+        "dominant_freq_hz": 6.7
+      }
+    }
+  }
+}

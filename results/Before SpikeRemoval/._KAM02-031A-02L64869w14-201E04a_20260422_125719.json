@@ -1,0 +1,31 @@
+{
+  "run_id": "20251010_143940-UNO201-UNO256 201-1",
+  "wafer_id": 14,
+  "die_number": "E04",
+  "lot_number": "B64869",
+  "instrument_id": "UNO201",
+  "aggressors": {
+    "218": {
+      "2025-10-10T22:18:23.110625": {
+        "total_time_s": 10.0,
+        "mean_baseline": 1735.0,
+        "amplitude": 160.1,
+        "dominant_freq_hz": 5.3
+      },
+      "2025-10-10T22:43:01.410625": {
+        "total_time_s": 615.0,
+        "mean_baseline": 1640.7,
+        "amplitude": 149.9,
+        "dominant_freq_hz": 4.96
+      }
+    },
+    "253": {
+      "2025-10-11T06:00:38.310625": {
+        "total_time_s": 225.0,
+        "mean_baseline": 1618.7,
+        "amplitude": 131.2,
+        "dominant_freq_hz": 4.44
+      }
+    }
+  }
+}

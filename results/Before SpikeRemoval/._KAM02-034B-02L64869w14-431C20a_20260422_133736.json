@@ -1,0 +1,173 @@
+{
+  "run_id": "20251016_152510-OhmX431-431-1",
+  "wafer_id": 14,
+  "die_number": "C20",
+  "lot_number": "B64869",
+  "instrument_id": "OhmX431",
+  "aggressors": {
+    "37": {
+      "2025-10-16T22:09:50.875904": {
+        "total_time_s": 15.0,
+        "mean_baseline": 1122.9,
+        "amplitude": 127.2,
+        "dominant_freq_hz": 5.9
+      }
+    },
+    "43": {
+      "2025-10-16T23:00:58.575904": {
+        "total_time_s": 260.0,
+        "mean_baseline": 1477.9,
+        "amplitude": 193.3,
+        "dominant_freq_hz": 5.01
+      }
+    },
+    "177": {
+      "2025-10-17T00:13:44.375904": {
+        "total_time_s": 10.0,
+        "mean_baseline": 1421.2,
+        "amplitude": 460.2,
+        "dominant_freq_hz": 7.1
+      }
+    },
+    "196": {
+      "2025-10-17T00:26:52.575904": {
+        "total_time_s": 20.0,
+        "mean_baseline": 1736.7,
+        "amplitude": 199.0,
+        "dominant_freq_hz": 17.8
+      }
+    },
+    "29": {
+      "2025-10-17T01:52:55.275904": {
+        "total_time_s": 10.0,
+        "mean_baseline": 1426.9,
+        "amplitude": 500.8,
+        "dominant_freq_hz": 5.6
+      },
+      "2025-10-17T02:17:53.775904": {
+        "total_time_s": 700.0,
+        "mean_baseline": 1334.2,
+        "amplitude": 423.5,
+        "dominant_freq_hz": 4.75
+      }
+    },
+    "122": {
+      "2025-10-17T01:38:10.275904": {
+        "total_time_s": 255.0,
+        "mean_baseline": 1405.1,
+        "amplitude": 244.9,
+        "dominant_freq_hz": 4.5
+      }
+    },
+    "12": {
+      "2025-10-17T02:44:31.875904": {
+        "total_time_s": 445.0,
+        "mean_baseline": 1563.2,
+        "amplitude": 432.8,
+        "dominant_freq_hz": 6.49
+      }
+    },
+    "144": {
+      "2025-10-17T02:43:06.875904": {
+        "total_time_s": 430.0,
+        "mean_baseline": 1611.9,
+        "amplitude": 388.9,
+        "dominant_freq_hz": 4.52
+      }
+    },
+    "192": {
+      "2025-10-17T03:26:04.475904": {
+        "total_time_s": 50.0,
+        "mean_baseline": 1787.8,
+        "amplitude": 211.4,
+        "dominant_freq_hz": 8.01
+      },
+      "2025-10-17T04:08:34.275904": {
+        "total_time_s": 255.0,
+        "mean_baseline": 1914.4,
+        "amplitude": 165.1,
+        "dominant_freq_hz": 10.1
+      }
+    },
+    "170": {
+      "2025-10-17T04:11:59.275904": {
+        "total_time_s": 10.0,
+        "mean_baseline": 1907.5,
+        "amplitude": 389.9,
+        "dominant_freq_hz": 7.1
+      },
+      "2025-10-17T04:18:39.175904": {
+        "total_time_s": 1010.0,
+        "mean_baseline": 1786.1,
+        "amplitude": 430.2,
+        "dominant_freq_hz": 9.32
+      },
+      "2025-10-17T04:50:07.675904": {
+        "total_time_s": 180.0,
+        "mean_baseline": 1503.0,
+        "amplitude": 182.2,
+        "dominant_freq_hz": 5.22
+      }
+    },
+    "231": {
+      "2025-10-17T04:32:49.175904": {
+        "total_time_s": 575.0,
+        "mean_baseline": 2248.5,
+        "amplitude": 207.2,
+        "dominant_freq_hz": 4.1
+      },
+      "2025-10-17T06:09:18.675904": {
+        "total_time_s": 510.0,
+        "mean_baseline": 2390.5,
+        "amplitude": 277.0,
+        "dominant_freq_hz": 4.37
+      }
+    },
+    "100": {
+      "2025-10-17T04:50:57.675904": {
+        "total_time_s": 180.0,
+        "mean_baseline": 1379.2,
+        "amplitude": 236.1,
+        "dominant_freq_hz": 4.53
+      },
+      "2025-10-17T06:12:58.675904": {
+        "total_time_s": 20.0,
+        "mean_baseline": 1861.9,
+        "amplitude": 178.2,
+        "dominant_freq_hz": 4.0
+      }
+    },
+    "52": {
+      "2025-10-17T06:58:57.575904": {
+        "total_time_s": 100.0,
+        "mean_baseline": 1753.1,
+        "amplitude": 288.3,
+        "dominant_freq_hz": 6.2
+      }
+    },
+    "156": {
+      "2025-10-17T07:20:56.875904": {
+        "total_time_s": 20.0,
+        "mean_baseline": 1372.2,
+        "amplitude": 192.6,
+        "dominant_freq_hz": 4.21
+      }
+    },
+    "245": {
+      "2025-10-17T08:11:18.575904": {
+        "total_time_s": 640.0,
+        "mean_baseline": 0.0,
+        "amplitude": 183.5,
+        "dominant_freq_hz": 14.32
+      }
+    },
+    "195": {
+      "2025-10-17T10:42:19.075904": {
+        "total_time_s": 495.0,
+        "mean_baseline": 1748.7,
+        "amplitude": 362.2,
+        "dominant_freq_hz": 10.03
+      }
+    }
+  }
+}

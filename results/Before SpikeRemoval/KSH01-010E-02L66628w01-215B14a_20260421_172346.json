@@ -1,0 +1,65 @@
+{
+  "run_id": "20260406_180037-OHMX215-UNO256 215-1",
+  "wafer_id": 1,
+  "die_number": "B14",
+  "lot_number": "B66628",
+  "instrument_id": "OHMX215",
+  "aggressors": {
+    "209": {
+      "2026-04-07T03:10:26.010752": {
+        "total_time_s": 10.0,
+        "mean_baseline": 1473.4,
+        "amplitude": 297.1,
+        "dominant_freq_hz": 4.2
+      },
+      "2026-04-07T03:41:36.510752": {
+        "total_time_s": 75.0,
+        "mean_baseline": 1537.7,
+        "amplitude": 131.3,
+        "dominant_freq_hz": 4.1
+      }
+    },
+    "241": {
+      "2026-04-07T03:27:51.010752": {
+        "total_time_s": 225.0,
+        "mean_baseline": 1731.8,
+        "amplitude": 142.2,
+        "dominant_freq_hz": 10.3
+      },
+      "2026-04-07T03:34:56.510752": {
+        "total_time_s": 10.0,
+        "mean_baseline": 0.0,
+        "amplitude": 109.1,
+        "dominant_freq_hz": 10.0
+      },
+      "2026-04-07T04:08:27.310752": {
+        "total_time_s": 90.0,
+        "mean_baseline": 1811.4,
+        "amplitude": 181.4,
+        "dominant_freq_hz": 4.2
+      }
+    },
+    "252": {
+      "2026-04-07T03:03:41.010752": {
+        "total_time_s": 1465.0,
+        "mean_baseline": 1820.3,
+        "amplitude": 193.3,
+        "dominant_freq_hz": 14.11
+      },
+      "2026-04-07T03:35:06.510752": {
+        "total_time_s": 990.0,
+        "mean_baseline": 1878.6,
+        "amplitude": 218.6,
+        "dominant_freq_hz": 8.19
+      }
+    },
+    "171": {
+      "2026-04-07T05:18:00.810752": {
+        "total_time_s": 120.0,
+        "mean_baseline": 1397.0,
+        "amplitude": 336.8,
+        "dominant_freq_hz": 12.8
+      }
+    }
+  }
+}

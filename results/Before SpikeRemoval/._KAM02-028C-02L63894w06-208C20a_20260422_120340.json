@@ -1,0 +1,83 @@
+{
+  "run_id": "20251001_115745-OhmX208-UNO256 208-1",
+  "wafer_id": 6,
+  "die_number": "C20",
+  "lot_number": "B63894",
+  "instrument_id": "OhmX208",
+  "aggressors": {
+    "227": {
+      "2025-10-01T18:42:00.598026": {
+        "total_time_s": 110.0,
+        "mean_baseline": 1546.4,
+        "amplitude": 291.8,
+        "dominant_freq_hz": 6.85
+      },
+      "2025-10-01T19:27:59.898026": {
+        "total_time_s": 780.0,
+        "mean_baseline": 1631.2,
+        "amplitude": 328.9,
+        "dominant_freq_hz": 10.15
+      },
+      "2025-10-01T20:00:12.198026": {
+        "total_time_s": 760.0,
+        "mean_baseline": 1672.0,
+        "amplitude": 346.6,
+        "dominant_freq_hz": 4.0
+      },
+      "2025-10-01T20:33:55.598026": {
+        "total_time_s": 655.0,
+        "mean_baseline": 1692.6,
+        "amplitude": 292.2,
+        "dominant_freq_hz": 4.0
+      },
+      "2025-10-01T21:13:04.498026": {
+        "total_time_s": 75.0,
+        "mean_baseline": 1722.8,
+        "amplitude": 269.0,
+        "dominant_freq_hz": 4.1
+      },
+      "2025-10-01T21:40:33.398026": {
+        "total_time_s": 575.0,
+        "mean_baseline": 1637.1,
+        "amplitude": 245.7,
+        "dominant_freq_hz": 7.8
+      }
+    },
+    "223": {
+      "2025-10-01T20:51:55.598026": {
+        "total_time_s": 210.0,
+        "mean_baseline": 1599.5,
+        "amplitude": 249.8,
+        "dominant_freq_hz": 4.46
+      }
+    },
+    "238": {
+      "2025-10-01T21:19:09.498026": {
+        "total_time_s": 10.0,
+        "mean_baseline": 827.2,
+        "amplitude": 130.2,
+        "dominant_freq_hz": 7.1
+      }
+    },
+    "155": {
+      "2025-10-02T01:36:56.398026": {
+        "total_time_s": 285.0,
+        "mean_baseline": 1463.2,
+        "amplitude": 338.7,
+        "dominant_freq_hz": 8.33
+      },
+      "2025-10-02T02:10:07.898026": {
+        "total_time_s": 470.0,
+        "mean_baseline": 1460.8,
+        "amplitude": 306.2,
+        "dominant_freq_hz": 10.75
+      },
+      "2025-10-02T02:44:41.298026": {
+        "total_time_s": 645.0,
+        "mean_baseline": 1413.4,
+        "amplitude": 249.9,
+        "dominant_freq_hz": 6.1
+      }
+    }
+  }
+}

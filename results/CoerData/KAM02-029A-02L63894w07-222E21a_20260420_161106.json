@@ -1,0 +1,49 @@
+{
+  "run_id": "20251002_121914-OhmX222-UNO256 222-1",
+  "wafer_id": 7,
+  "die_number": "E21",
+  "lot_number": "B63894",
+  "instrument_id": "OhmX222",
+  "aggressors": {
+    "70": {
+      "2025-10-02T17:57:55.172456": {
+        "total_time_s": 10.0,
+        "mean_baseline": 1325.1,
+        "amplitude": 185.4,
+        "dominant_freq_hz": 6.7
+      }
+    },
+    "179": {
+      "2025-10-02T21:18:17.372456": {
+        "total_time_s": 30.0,
+        "mean_baseline": 1389.2,
+        "amplitude": 287.2,
+        "dominant_freq_hz": 4.1
+      }
+    },
+    "233": {
+      "2025-10-02T23:56:44.172456": {
+        "total_time_s": 255.0,
+        "mean_baseline": 1766.2,
+        "amplitude": 196.5,
+        "dominant_freq_hz": 12.3
+      }
+    },
+    "61": {
+      "2025-10-03T01:10:13.772456": {
+        "total_time_s": 30.0,
+        "mean_baseline": 1371.6,
+        "amplitude": 142.5,
+        "dominant_freq_hz": 6.8
+      }
+    },
+    "119": {
+      "2025-10-03T08:28:00.472456": {
+        "total_time_s": 15.0,
+        "mean_baseline": 894.5,
+        "amplitude": 106.8,
+        "dominant_freq_hz": 4.0
+      }
+    }
+  }
+}

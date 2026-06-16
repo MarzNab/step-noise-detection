@@ -1,0 +1,17 @@
+{
+  "run_id": "20250924_143812-UNO205-UNO256 205-1",
+  "wafer_id": 5,
+  "die_number": "G16",
+  "lot_number": "B63894",
+  "instrument_id": "UNO205",
+  "aggressors": {
+    "28": {
+      "2025-09-24T20:30:09.917441": {
+        "total_time_s": 25.0,
+        "mean_baseline": 1418.9,
+        "amplitude": 200.3,
+        "dominant_freq_hz": 8.25
+      }
+    }
+  }
+}
