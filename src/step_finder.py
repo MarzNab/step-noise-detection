@@ -4,12 +4,28 @@ regions with periodic step noise (4-20 Hz, configurable amplitude).
 
 Standalone GUI application.  Reuses tdd_reader.py from the same src/ folder.
 """
-__version__ = "1.2.0"
+__version__ = "1.3.0"
+
+# Victims whose |r| is below this are not trustworthy coupling estimates:
+# a channel dominated by its own noise projects a large but meaningless
+# ratio. Gate the Ratio metric (and the trend) on it.
+#
+# Calibrated 2026-07-29 against 32 kHz ground truth (5,853 victims):
+#   gate 0.20 -> 13% median error, 1131 victims kept
+#   gate 0.25 -> 11% median error,  706 victims kept   <- knee
+#   gate 0.30 -> 10% median error,  474 victims kept
+#   gate 0.40 ->  9% median error,  217 victims kept
+# Accuracy plateaus above ~0.30, so 0.25 is the best accuracy/coverage
+# trade. Note the aggregate bias is ~1.07 at every gate: medians and
+# trends are unbiased even ungated; the gate protects PER-CHANNEL values.
+R_GATE = 0.25
 
 import sys
 import os
 import glob
 import fnmatch
+import hashlib
+import inspect
 import json
 import threading
 from datetime import datetime
@@ -23,7 +39,7 @@ if sys.stderr is None:
 sys.path.insert(0, os.path.dirname(os.path.abspath(__file__)))
 
 import numpy as np
-from scipy.signal import butter, filtfilt, find_peaks
+from scipy.signal import butter, filtfilt, find_peaks, medfilt
 from scipy.fft import rfft, irfft, next_fast_len
 from concurrent.futures import ThreadPoolExecutor, as_completed
 import tkinter as tk
@@ -33,7 +49,8 @@ matplotlib.use("TkAgg")
 from matplotlib.figure import Figure
 from matplotlib.backends.backend_tkagg import FigureCanvasTkAgg, NavigationToolbar2Tk
 
-from tdd_reader import parse_header, load_data, descramble_channels, TDDHeader
+from tdd_reader import (parse_header, load_data, descramble_channels,
+                        channel_seq_index, TDDHeader)
 
 
 # ── Detection core ────────────────────────────────────────────────────────────
@@ -271,7 +288,9 @@ def find_step_noise(
         if pre_start < pre_end:
             seg["baseline_mv"] = round(float(channel_uv[pre_start:pre_end].max()) / 1000.0, 1)
         else:
-            seg["baseline_mv"] = 0.0
+            # No pre-window exists (event starts at t=0) — report N/A,
+            # not 0, so downstream fits can't be skewed by a fake value.
+            seg["baseline_mv"] = None
 
         # Post-baseline: window after end (if data exists)
         post_start = int(seg["end_sec"] * sample_rate)
@@ -315,7 +334,11 @@ class StepFinderApp:
         self._MAX_CACHE_BYTES: int = 8 * 1024 ** 3   # 8 GB
 
         self._build_ui()
-        self._status("Ready — open a TDD file to begin.")
+        if self._load_valid_stash() is not None:
+            self._status("Ready — previous session available: "
+                         "File → Resume Last Session.")
+        else:
+            self._status("Ready — open a TDD file to begin.")
 
     # ── UI construction ───────────────────────────────────────────────────
 
@@ -329,6 +352,12 @@ class StepFinderApp:
         file_menu.add_command(label="Scan Files…", command=self._scan_files)
         file_menu.add_command(label="Scan Folders…", command=self._scan_multi_folders)
         file_menu.add_command(label="Scan All Runs…", command=self._scan_data_root)
+        file_menu.add_separator()
+        file_menu.add_command(label="Write Reports Now",
+                              command=self._write_reports_now)
+        file_menu.add_separator()
+        file_menu.add_command(label="Resume Last Session",
+                              command=self._restore_stash)
         file_menu.add_separator()
         file_menu.add_command(label="Exit", command=self.root.quit)
         menu.add_cascade(label="File", menu=file_menu)
@@ -384,6 +413,19 @@ class StepFinderApp:
                                    command=self._stop_scan, state="disabled")
         self.stop_btn.pack(side="left", padx=4)
 
+        self.xtalk_btn = ttk.Button(top, text="Crosstalk",
+                                    command=self._show_crosstalk)
+        self.xtalk_btn.pack(side="left", padx=4)
+
+        self.xtalk_all_btn = ttk.Button(top, text="Xtalk All Events",
+                                        command=self._start_xtalk_all)
+        self.xtalk_all_btn.pack(side="left", padx=(0, 4))
+
+        self.xtalk_whole_var = tk.BooleanVar(value=False)
+        ttk.Checkbutton(top, text="Whole event",
+                        variable=self.xtalk_whole_var).pack(side="left",
+                                                            padx=(0, 4))
+
         self.full_file_var = tk.BooleanVar(value=False)
         ttk.Checkbutton(top, text="Full file (top plot)",
                         variable=self.full_file_var,
@@ -414,7 +456,7 @@ class StepFinderApp:
         pane.add(tbl_frame, weight=1)
 
         cols = ("file", "channel", "start", "end", "freq", "amp",
-                "pre_baseline", "post_baseline", "periodicity")
+                "pre_baseline", "post_baseline", "periodicity", "xtalk")
         self.tree = ttk.Treeview(tbl_frame, columns=cols, show="headings",
                                  selectmode="browse")
         col_labels = {
@@ -427,6 +469,7 @@ class StepFinderApp:
             "pre_baseline": "Pre BL (mV)",
             "post_baseline": "Post BL (mV)",
             "periodicity": "Periodicity",
+            "xtalk": "Xtalk @Agg (%)",
         }
         self._col_labels = col_labels
         self._sort_state: dict = {}   # col -> reverse (bool)
@@ -439,12 +482,19 @@ class StepFinderApp:
         self.tree.column("channel", width=70)
         self.tree.column("pre_baseline", width=90)
         self.tree.column("post_baseline", width=90)
+        self.tree.column("xtalk", width=100)
 
         vsb = ttk.Scrollbar(tbl_frame, orient="vertical", command=self.tree.yview)
         self.tree.configure(yscrollcommand=vsb.set)
         self.tree.pack(side="left", fill="both", expand=True)
         vsb.pack(side="right", fill="y")
         self.tree.bind("<<TreeviewSelect>>", self._on_select)
+
+        # Tooltip: hover over the File column to see the full path
+        self._tt_win = None
+        self._tt_last_row = None
+        self.tree.bind("<Motion>", self._on_tree_motion)
+        self.tree.bind("<Leave>", lambda _e: self._hide_tooltip())
 
         # Plot area
         plot_frame = ttk.Frame(pane)
@@ -471,6 +521,667 @@ class StepFinderApp:
                     self.per_var, self.gap_var, self.envelope_var,
                     self.full_file_var):
             var.trace_add("write", lambda *_: self._save_config())
+
+    # ── File-column tooltip ──────────────────────────────────────────────
+
+    def _on_tree_motion(self, event):
+        """Show a tooltip with the full path when hovering over the File column."""
+        rowid = self.tree.identify_row(event.y)
+        colid = self.tree.identify_column(event.x)
+        if not rowid or colid != "#1":   # #1 is the "file" column
+            self._hide_tooltip()
+            return
+        tags = self.tree.item(rowid, "tags")
+        if not tags:
+            self._hide_tooltip()
+            return
+        full = tags[0]   # first tag is the filepath (set in _scan_done)
+        if rowid == self._tt_last_row and self._tt_win is not None:
+            return       # same row — keep existing tooltip
+        self._hide_tooltip()
+        self._tt_last_row = rowid
+        self._tt_win = tk.Toplevel(self.tree)
+        self._tt_win.wm_overrideredirect(True)
+        self._tt_win.wm_geometry(
+            f"+{event.x_root + 15}+{event.y_root + 10}")
+        tk.Label(self._tt_win, text=full, bg="#ffffe0",
+                 relief="solid", borderwidth=1, padx=6, pady=2,
+                 font=("Segoe UI", 9)).pack()
+
+    def _hide_tooltip(self):
+        if self._tt_win is not None:
+            self._tt_win.destroy()
+            self._tt_win = None
+        self._tt_last_row = None
+
+    # ── Crosstalk analysis ───────────────────────────────────────────────
+
+    def _show_crosstalk(self):
+        """Correlate the selected event window against all other channels."""
+        sel = self.tree.selection()
+        if not sel:
+            self._status("Select a detection row first.")
+            return
+        item = self.tree.item(sel[0])
+        vals = item["values"]
+        agg_cid = int(vals[1])
+        start_sec = float(vals[2])
+        end_sec = float(vals[3])
+        tags = item["tags"]
+        filepath = tags[0]
+
+        self._status(f"Computing crosstalk vs Ch {agg_cid} "
+                     f"({start_sec:.0f}–{end_sec:.0f}s)…")
+        threading.Thread(
+            target=self._crosstalk_worker,
+            args=(filepath, agg_cid, start_sec, end_sec,
+                  self.xtalk_whole_var.get()),
+            daemon=True,
+        ).start()
+
+    def _crosstalk_worker(self, filepath, agg_cid, start_sec, end_sec,
+                          whole_event=False):
+        try:
+            header, data, chan_map = self._load_tdd(filepath)
+        except Exception as exc:
+            self.root.after(0, self._status, f"Crosstalk: load failed — {exc}")
+            return
+
+        fs = header.sample_rate
+
+        # Coupling is measured around the center of the event, where the
+        # step noise is in full swing. A longer window averages down
+        # uncorrelated noise (SNR ~ sqrt(N)), which matters when the
+        # coupling is small. "Whole event" uses the full span (capped at
+        # 5 min, centered); otherwise the center 10 s.
+        CORR_WINDOW_SEC = 300.0 if whole_event else 10.0
+        center = (start_sec + end_sec) / 2.0
+        half = min(CORR_WINDOW_SEC, end_sec - start_sec) / 2.0
+        s0 = max(0, int((center - half) * fs))
+        s1 = min(data.shape[0], int((center + half) * fs))
+        if s1 - s0 < int(0.1 * fs):
+            self.root.after(0, self._status, "Crosstalk: event too short.")
+            return
+        win_sec = (s1 - s0) / fs
+
+        cid_to_col = {cm["cid"]: cm["col"] for cm in chan_map}
+        agg_col = cid_to_col.get(agg_cid)
+        if agg_col is None:
+            self.root.after(0, self._status, "Crosstalk: channel not found.")
+            return
+
+        # Correlate the RAW signals (mean-removed only, no bandpass) so the
+        # coupling measurement isn't shaped by the detection filter.
+        agg = data[s0:s1, agg_col].astype(np.float64)
+        agg -= agg.mean()
+
+        def _stats(v):
+            norm = float(np.sqrt((v ** 2).sum())) + 1e-20
+            energy = float((v ** 2).sum()) + 1e-20
+            pp = float(v.max() - v.min())
+            return norm, energy, pp
+
+        agg_norm, agg_energy, agg_pp = _stats(agg)
+
+        # ±1 kernel from the aggressor: +1 where it is clearly high, -1
+        # where clearly low, 0 in the dead zone near zero. Averaging
+        # kernel × victim estimates the aggressor step amplitude present
+        # in the victim; dividing by the kernel's response to the
+        # aggressor itself gives a robust coupling gain that outlier
+        # spikes on the victim barely move.
+        def _make_kernel(v):
+            thr = 0.25 * v.std()
+            k = np.zeros_like(v)
+            k[v > thr] = 1.0
+            k[v < -thr] = -1.0
+            return k, float(np.count_nonzero(k)) + 1e-20
+
+        kern, kern_n = _make_kernel(agg)
+        k_agg = float((kern * agg).sum()) / kern_n            # µV
+
+        n_ch = header.channel_count or 256
+
+        # Channels carrying their own large signal in this window are
+        # co-aggressors, not victims: their ratio is inflated and they
+        # contaminate the profile. Flag anything above 25% of the
+        # aggressor's own peak-to-peak.
+        win_pp = (data[s0:s1, :].max(axis=0) - data[s0:s1, :].min(axis=0))
+        loud_thr = 0.25 * agg_pp
+        loud_cids = sorted(
+            cm["cid"] for cm in chan_map
+            if cm["cid"] != agg_cid and win_pp[cm["col"]] > loud_thr)
+
+        def _one(cmap):
+            cid, col = cmap["cid"], cmap["col"]
+            if cid == agg_cid:
+                return None
+            sig = data[s0:s1, col].astype(np.float64)
+            sig -= sig.mean()
+
+            # Correlation / least-squares projection
+            sig_norm = float(np.sqrt((sig ** 2).sum())) + 1e-20
+            dot = float((agg * sig).sum())
+            r = dot / (agg_norm * sig_norm)
+            beta = dot / agg_energy          # least-squares coupling gain
+            corr = (r, abs(beta) * agg_pp / 1000.0, abs(beta) * 100.0)
+
+            # kernel method
+            g = (float((kern * sig).sum()) / kern_n) / (k_agg + 1e-20)
+            kern_raw = (g, abs(g) * agg_pp / 1000.0, abs(g) * 100.0)
+
+            return {
+                "cid": cid,
+                "seq": channel_seq_index(cid, n_ch),
+                "corr": corr, "kern": kern_raw,
+                "loud": cid in loud_set,
+            }
+
+        loud_set = set(loud_cids)
+        results = []
+        max_workers = min(os.cpu_count() or 1, 8)
+        with ThreadPoolExecutor(max_workers=max_workers) as ex:
+            for out in ex.map(_one, chan_map):
+                if out is not None:
+                    results.append(out)
+
+        agg_seq = channel_seq_index(agg_cid, n_ch)
+        max_r = max((abs(d["corr"][0]) for d in results
+                     if not d["loud"]), default=0.0)
+        self.root.after(0, self._show_crosstalk_results,
+                        agg_cid, agg_seq, start_sec, end_sec,
+                        agg_pp / 1000.0, win_sec, results,
+                        loud_cids, max_r)
+
+    def _show_crosstalk_results(self, agg_cid, agg_seq, start_sec, end_sec,
+                                agg_pp_mv, win_sec, results,
+                                loud_cids=(), max_r=1.0):
+        self._status("Crosstalk analysis complete.")
+        win = tk.Toplevel(self.root)
+        win.title(f"Crosstalk — aggressor Ch {agg_cid} "
+                  f"({start_sec:.0f}–{end_sec:.0f}s)")
+        win.geometry("980x620")
+
+        ttk.Label(win, padding=6, text=(
+            f"Aggressor Ch {agg_cid} (physical position {agg_seq}): "
+            f"{agg_pp_mv:.1f} mV pp (raw), center {win_sec:.0f} s of the "
+            f"event. "
+            f"Correlation = least-squares projection of the aggressor onto "
+            f"each channel. Kernel ±1 = the aggressor quantized to "
+            f"+1/0/−1, multiplied with each channel and averaged — robust "
+            f"to spikes on the victims. Ratio = coupled amplitude / "
+            f"aggressor amplitude. Physical order un-scrambles the "
+            f"serpentine layout. Victims with |r| < {R_GATE:.2f} are "
+            f"greyed out - their ratio is unreliable (mostly own noise)."
+        ), wraplength=940).pack(anchor="w")
+
+        # Measurability banner. If no victim's waveform demonstrably
+        # follows the aggressor, every ratio here is noise - say so loudly
+        # rather than letting a meaningless trend look like physics.
+        if max_r < R_GATE:
+            tk.Label(win, bg="#fdecea", fg="#8a1c13",
+                     font=("Segoe UI", 10, "bold"), anchor="w",
+                     padx=8, pady=5, justify="left",
+                     text=(f"NOT MEASURABLE - best |r| is only {max_r:.2f} "
+                           f"(gate {R_GATE:.2f}). The coupled signal is below "
+                           f"every victim's own noise in this window, so the "
+                           f"ratios and trends below are not meaningful. "
+                           f"Try a different event or a longer window."),
+                     wraplength=1180).pack(fill="x", padx=6)
+        if loud_cids:
+            shown = ", ".join(f"ch {c}" for c in loud_cids[:10])
+            more = f" (+{len(loud_cids) - 10} more)" if len(loud_cids) > 10 else ""
+            tk.Label(win, bg="#fff8e1", fg="#6b4e00",
+                     font=("Segoe UI", 9), anchor="w", padx=8, pady=4,
+                     justify="left",
+                     text=(f"Co-aggressors excluded ({len(loud_cids)} "
+                           f"channels above 25% of the aggressor amplitude): "
+                           f"{shown}{more}. These carry their own signal, "
+                           f"which would inflate their ratio."),
+                     wraplength=1180).pack(fill="x", padx=6)
+
+        pane = ttk.PanedWindow(win, orient="horizontal")
+        pane.pack(fill="both", expand=True, padx=6, pady=6)
+
+        # Table
+        tbl_frame = ttk.Frame(pane)
+        pane.add(tbl_frame, weight=1)
+        cols = ("ch", "pos", "r", "pp", "pct")
+        tv = ttk.Treeview(tbl_frame, columns=cols, show="headings")
+        tv.heading("ch", text="Channel")
+        tv.heading("pos", text="Pos")
+        tv.heading("r", text="r / gain")
+        tv.heading("pp", text="Xtalk Amp (mV)")
+        tv.heading("pct", text="Ratio (%)")
+        tv.column("ch", width=65, anchor="center")
+        tv.column("pos", width=50, anchor="center")
+        tv.column("r", width=95, anchor="center")
+        tv.column("pp", width=95, anchor="center")
+        tv.column("pct", width=75, anchor="center")
+        sb = ttk.Scrollbar(tbl_frame, orient="vertical", command=tv.yview)
+        tv.configure(yscrollcommand=sb.set)
+        tv.pack(side="left", fill="both", expand=True)
+        sb.pack(side="right", fill="y")
+
+        # Controls
+        plot_frame = ttk.Frame(pane)
+        pane.add(plot_frame, weight=2)
+
+        ctrl = ttk.Frame(plot_frame)
+        ctrl.pack(fill="x", pady=(0, 2))
+        ttk.Label(ctrl, text="Method:").pack(side="left", padx=(4, 4))
+        method_var = tk.StringVar(value="Correlation")
+        for mode in ("Correlation", "Kernel ±1"):
+            ttk.Radiobutton(ctrl, text=mode, value=mode,
+                            variable=method_var,
+                            command=lambda: _refresh()).pack(side="left",
+                                                             padx=3)
+        clip_var = tk.BooleanVar(value=False)
+        ttk.Checkbutton(ctrl, text="Clip Y (95th pct)", variable=clip_var,
+                        command=lambda: _refresh()).pack(side="left",
+                                                         padx=(10, 4))
+        trend_var = tk.BooleanVar(value=True)
+        ttk.Checkbutton(ctrl, text="Trend", variable=trend_var,
+                        command=lambda: _refresh()).pack(side="left",
+                                                         padx=(0, 4))
+        excluded: set = set()
+
+        def _exclude_selected():
+            for iid in tv.selection():
+                excluded.add(int(tv.item(iid)["values"][0]))
+            _refresh()
+
+        def _reset_excluded():
+            excluded.clear()
+            _refresh()
+
+        ttk.Button(ctrl, text="Exclude Selected",
+                   command=_exclude_selected).pack(side="left", padx=(10, 4))
+        ttk.Button(ctrl, text="Reset",
+                   command=_reset_excluded).pack(side="left", padx=(0, 4))
+
+        ctrl2 = ttk.Frame(plot_frame)
+        ctrl2.pack(fill="x", pady=(0, 2))
+        ttk.Label(ctrl2, text="Y:").pack(side="left", padx=(4, 4))
+        axis_var = tk.StringVar(value="|r|")
+        for mode in ("|r|", "Xtalk Amp (mV)", "Ratio %"):
+            ttk.Radiobutton(ctrl2, text=mode, value=mode,
+                            variable=axis_var,
+                            command=lambda: _refresh()).pack(side="left",
+                                                             padx=3)
+        ttk.Label(ctrl2, text="   X:").pack(side="left", padx=(8, 4))
+        xaxis_var = tk.StringVar(value="Channel ID")
+        for mode in ("Physical order", "Channel ID"):
+            ttk.Radiobutton(ctrl2, text=mode, value=mode,
+                            variable=xaxis_var,
+                            command=lambda: _refresh()).pack(side="left",
+                                                             padx=3)
+
+        fig = Figure(figsize=(6, 5), dpi=96, tight_layout={"pad": 1.2})
+        ax = fig.add_subplot(1, 1, 1)
+        canvas = FigureCanvasTkAgg(fig, master=plot_frame)
+
+        def _rows(gated=False):
+            """Current-mode rows: (cid, seq, r_or_gain, xt_mv, pct).
+
+            gated=True keeps only victims whose |r| >= R_GATE, i.e. whose
+            waveform actually follows the aggressor. Ungated ratios are
+            inflated for channels carrying their own step noise.
+            """
+            kernel = method_var.get() == "Kernel ±1"
+            key = "kern" if kernel else "corr"
+            out = [(d["cid"], d["seq"], *d[key]) for d in results
+                   if d["cid"] not in excluded and not d["loud"]]
+            if gated:
+                out = [z for z in out if abs(z[2]) >= R_GATE]
+            return out
+
+        def _refresh():
+            rows = _rows()
+            kernel = method_var.get() == "Kernel ±1"
+            # Table — sorted by |r or gain| descending
+            tv.delete(*tv.get_children())
+            tv.tag_configure("weak", foreground="#9aa3b2")
+            for cid, seq, r, xt, pct in sorted(rows, key=lambda z: abs(z[2]),
+                                               reverse=True):
+                tags = () if abs(r) >= R_GATE else ("weak",)
+                tv.insert("", "end", values=(cid, seq, f"{r:+.3f}",
+                                             f"{xt:.2f}", f"{pct:.2f}"),
+                          tags=tags)
+            # Plot
+            mode = axis_var.get()
+            phys = xaxis_var.get() == "Physical order"
+            cids = [z[0] for z in rows]
+            xs = [z[1] if phys else z[0] for z in rows]
+            ax.clear()
+            if mode == "|r|":
+                ys = [abs(z[2]) for z in rows]
+                if kernel:
+                    ax.set_ylabel("|kernel gain|")
+                else:
+                    ax.set_ylabel("|r|")
+            elif mode == "Xtalk Amp (mV)":
+                ys = [z[3] for z in rows]
+                ax.set_ylabel("Xtalk Amp (mV pp)")
+            else:
+                ys = [z[4] for z in rows]
+                ax.set_ylabel("Ratio (% of aggressor)")
+
+            # Optional Y clipping limit: 95th percentile so one outlier
+            # channel doesn't flatten the rest. Points above are drawn
+            # at the limit; trends always use unclipped values.
+            lim = None
+            n_clipped = 0
+            if clip_var.get() and ys:
+                lim = 1.1 * float(np.percentile(ys, 95))
+                if lim <= 0:
+                    lim = None
+
+            # Points + rolling-median trend, split by channel parity —
+            # odd and even channels sit on opposite sides of the
+            # serpentine array, so their coupling can differ.
+            def _plot_group(parity, pt_color, tr_color, label):
+                clipped = 0
+                gx = [x for c, x in zip(cids, xs) if c % 2 == parity]
+                gy = [y for c, y in zip(cids, ys) if c % 2 == parity]
+                if not gx:
+                    return 0
+                py = gy
+                if lim is not None:
+                    clipped = sum(1 for y in gy if y > lim)
+                    py = [min(y, lim) for y in gy]
+                ax.scatter(gx, py, s=14, color=pt_color, alpha=0.65,
+                           edgecolors="none", label=label)
+                if trend_var.get() and max_r >= R_GATE and len(gy) >= 5:
+                    order = np.argsort(gx)
+                    xs_s = np.asarray(gx, dtype=float)[order]
+                    ys_s = np.asarray(gy, dtype=float)[order]
+                    k = min(15, len(ys_s))
+                    if k % 2 == 0:
+                        k -= 1
+                    if k >= 3:
+                        tr_raw = medfilt(ys_s, k)
+                        tr = (np.minimum(tr_raw, lim)
+                              if lim is not None else tr_raw)
+                        ax.plot(xs_s, tr, color=tr_color, linewidth=2,
+                                label=f"{label} trend")
+                        # Mark and label the trend's maximum (true value,
+                        # even if the displayed line is clipped)
+                        i_max = int(np.argmax(tr_raw))
+                        ax.plot(xs_s[i_max], tr[i_max], marker="o",
+                                color=tr_color, markersize=6)
+                        ax.annotate(
+                            f"max {tr_raw[i_max]:.3g} @ {int(xs_s[i_max])}",
+                            xy=(xs_s[i_max], tr[i_max]),
+                            xytext=(0, 8), textcoords="offset points",
+                            ha="center", fontsize=8, fontweight="bold",
+                            color=tr_color)
+                return clipped
+
+            n_clipped += _plot_group(1, "#7db6e8", "#1f77b4", "Odd ch")
+            n_clipped += _plot_group(0, "#f0a35e", "#d62728", "Even ch")
+
+            if lim is not None:
+                if mode == "|r|" and not kernel:
+                    ax.set_ylim(0, min(1.0, lim))
+                else:
+                    ax.set_ylim(0, lim)
+            elif mode == "|r|" and not kernel:
+                ax.set_ylim(0, 1)
+            ax.axvline(agg_seq if phys else agg_cid, color="red",
+                       linestyle="--", linewidth=1, label="Aggressor")
+            ax.set_xlabel("Physical position" if phys else "Channel ID")
+            title = "Kernel ±1" if kernel else "Correlation"
+            cm_txt = ""
+            extra = []
+            if n_clipped:
+                extra.append(f"{n_clipped} clipped")
+            if excluded:
+                extra.append(f"{len(excluded)} excluded")
+            g = _rows(gated=True)
+            if g:
+                best = max(g, key=lambda z: z[4])
+                extra.append(f"max ratio {best[4]:.2f}% @ ch {best[0]} "
+                             f"(|r|={abs(best[2]):.2f})")
+            extra_txt = f"  ({', '.join(extra)})" if extra else ""
+            ax.set_title(
+                f"{title} crosstalk vs Ch {agg_cid}{cm_txt}{extra_txt}",
+                fontsize=10)
+            ax.legend(loc="upper right", fontsize=8)
+            ax.grid(True, alpha=0.3)
+            canvas.draw_idle()
+
+        canvas.get_tk_widget().pack(fill="both", expand=True)
+        _refresh()
+
+    # ── Session stash ────────────────────────────────────────────────────
+    # After every scan the results are saved to disk together with a
+    # fingerprint of the detection code and the parameters used. "Resume
+    # Last Session" restores them instantly — but only if the data files
+    # and the step-finding routine are unchanged, so stale results can
+    # never masquerade as current ones.
+
+    def _stash_path(self) -> str:
+        app_dir = os.path.dirname(os.path.dirname(os.path.abspath(__file__)))
+        return os.path.join(app_dir, "step_finder_stash.json")
+
+    @staticmethod
+    def _detector_fingerprint() -> str:
+        """Hash the source of the detection routine (+ helpers)."""
+        src = "".join(inspect.getsource(f) for f in
+                      (find_step_noise, _bandpass, compute_bandpass_coefs))
+        return hashlib.md5(src.encode()).hexdigest()
+
+    def _save_stash(self, found: list):
+        """Persist the last scan (best-effort)."""
+        if not self._batch_files:
+            return
+        files = [[fp, os.path.getsize(fp)] for fp in self._batch_files
+                 if os.path.exists(fp)]
+        if not files:
+            return
+        data = {
+            "app_version": __version__,
+            "detector": self._detector_fingerprint(),
+            "saved": datetime.now().isoformat(timespec="seconds"),
+            "label": self._batch_label,
+            "params": {
+                "amp": self.amp_var.get(),
+                "freq_lo": self.freq_lo_var.get(),
+                "freq_hi": self.freq_hi_var.get(),
+                "periodicity": self.per_var.get(),
+                "gap": self.gap_var.get(),
+                "envelope_mode": self.envelope_var.get(),
+            },
+            "files": files,
+            "found": [[fp, cid, col, segs]
+                      for fp, cid, col, segs in found],
+        }
+        try:
+            with open(self._stash_path(), "w") as f:
+                json.dump(data, f, default=float)
+        except OSError:
+            pass
+
+    def _load_valid_stash(self) -> dict | None:
+        """Load the stash; return None if data or detector changed."""
+        try:
+            with open(self._stash_path(), "r") as f:
+                data = json.load(f)
+        except (FileNotFoundError, OSError, json.JSONDecodeError):
+            return None
+        if data.get("detector") != self._detector_fingerprint():
+            return None
+        for fp, size in data.get("files", []):
+            if not os.path.exists(fp) or os.path.getsize(fp) != size:
+                return None
+        if not data.get("files"):
+            return None
+        return data
+
+    def _restore_stash(self):
+        if self._scanning:
+            return
+        data = self._load_valid_stash()
+        if data is None:
+            messagebox.showinfo(
+                "Resume Last Session",
+                "No resumable session found.\n\nThe stash is invalid when "
+                "the data files moved/changed or the detection routine "
+                "was modified — rescan to rebuild it.")
+            return
+
+        # Apply the stashed parameters so a rescan reproduces the results
+        p = data.get("params", {})
+        for key, var in (("amp", self.amp_var),
+                         ("freq_lo", self.freq_lo_var),
+                         ("freq_hi", self.freq_hi_var),
+                         ("periodicity", self.per_var),
+                         ("gap", self.gap_var),
+                         ("envelope_mode", self.envelope_var)):
+            if key in p:
+                try:
+                    var.set(p[key])
+                except Exception:
+                    pass
+
+        self.filepath = None
+        self.header = None
+        self.data = None
+        self.chan_map = []
+        self._batch_files = [f[0] for f in data["files"]]
+        self._batch_folder = os.path.dirname(self._batch_files[0])
+        self._batch_label = data.get("label", "")
+
+        found = [(fp, cid, col, segs)
+                 for fp, cid, col, segs in data.get("found", [])]
+        # report_paths=[] suppresses report regeneration on restore
+        self._scan_done(found, report_paths=[], from_stash=True)
+        label = self._batch_label or os.path.basename(self._batch_folder)
+        self.file_lbl.config(
+            text=f"{label}/  ({len(self._batch_files)} files, restored)")
+        self._status(f"Session restored from {data.get('saved', '?')} — "
+                     f"{len(found)} channel entr(ies). Parameters applied; "
+                     f"Scan All Channels rescans the same files.")
+
+
+    def _write_reports_now(self):
+        """Regenerate per-folder reports from the current results.
+
+        Useful after 'Xtalk All Events', since the scan-time reports were
+        written before the crosstalk column existed.
+        """
+        if self._scanning or not self.results:
+            self._status("Nothing to write — scan first.")
+            return
+        paths = []
+        folders = sorted({os.path.dirname(f[0]) for f in self.results})
+        for folder in folders:
+            ff = [f for f in self.results if os.path.dirname(f[0]) == folder]
+            files = [fp for fp in self._batch_files
+                     if os.path.dirname(fp) == folder] or [f[0] for f in ff]
+            rp = self._write_report(ff, folder, files)
+            if rp:
+                paths.append(rp)
+        self._status(f"{len(paths)} report(s) rewritten to results/"
+                     if paths else "Report write failed.")
+
+    # ── Xtalk @Agg column ─────────────────────────────────────────────────
+
+    def _start_xtalk_all(self):
+        """Fill the 'Xtalk @Agg (%)' column for every row in the table."""
+        if self._scanning:
+            return
+        items = list(self.tree.get_children())
+        if not items:
+            self._status("Nothing to compute — scan first.")
+            return
+        self._scanning = True
+        self._start_busy_indicator()
+        threading.Thread(target=self._xtalk_all_worker, args=(items,),
+                         daemon=True).start()
+
+    def _xtalk_all_worker(self, items):
+        """Per event: trend value of the Ratio at the channel nearest the
+        aggressor, using the aggressor's own parity (the stronger,
+        physically meaningful path). Blank when not measurable."""
+        total = len(items)
+        for i, iid in enumerate(items):
+            if self._stop_event.is_set():
+                break
+            try:
+                vals = self.tree.item(iid)["values"]
+                agg_cid = int(vals[1])
+                start, end = float(vals[2]), float(vals[3])
+                filepath = self.tree.item(iid)["tags"][0]
+                txt = self._xtalk_at_aggressor(filepath, agg_cid, start, end)
+                # keep it on the segment so .txt/.json reports can use it
+                for fp, cid_, _col, segs in self.results:
+                    if fp == filepath and cid_ == agg_cid:
+                        for sg in segs:
+                            if abs(sg["start_sec"] - start) < 0.05:
+                                sg["xtalk_at_agg"] = txt
+            except Exception:
+                txt = "—"
+            self.root.after(0, self._set_tree_value, iid, "xtalk", txt)
+            self.root.after(0, self._update_progress, i + 1, total,
+                            f"Xtalk ch {agg_cid}")
+        self.root.after(0, self._xtalk_all_done)
+
+    def _set_tree_value(self, iid, col, txt):
+        try:
+            self.tree.set(iid, col, txt)
+        except tk.TclError:
+            pass
+
+    def _xtalk_all_done(self):
+        self._stop_busy_indicator()
+        self.prog_lbl.config(text="")
+        self._status("Xtalk @Agg column complete.")
+
+    def _xtalk_at_aggressor(self, filepath, agg_cid, start_sec, end_sec):
+        """Return the trend Ratio nearest the aggressor as a string."""
+        header, data, chan_map = self._load_tdd(filepath)
+        fs = header.sample_rate
+        half = min(10.0, end_sec - start_sec) / 2.0
+        center = (start_sec + end_sec) / 2.0
+        s0 = max(0, int((center - half) * fs))
+        s1 = min(data.shape[0], int((center + half) * fs))
+        if s1 - s0 < int(0.5 * fs):
+            return "—"
+
+        c2c = {cm["cid"]: cm["col"] for cm in chan_map}
+        if agg_cid not in c2c:
+            return "—"
+        agg = data[s0:s1, c2c[agg_cid]].astype(np.float64)
+        agg -= agg.mean()
+        agg_n = float(np.linalg.norm(agg)) + 1e-20
+        agg_E = float((agg ** 2).sum()) + 1e-20
+
+        win_pp = data[s0:s1, :].max(axis=0) - data[s0:s1, :].min(axis=0)
+        loud_thr = 0.25 * win_pp[c2c[agg_cid]]
+
+        # same-parity victims only, co-aggressors dropped
+        pts = []
+        for cm in chan_map:
+            cid, col = cm["cid"], cm["col"]
+            if cid == agg_cid or cid % 2 != agg_cid % 2:
+                continue
+            if win_pp[col] > loud_thr:
+                continue
+            v = data[s0:s1, col].astype(np.float64)
+            v -= v.mean()
+            dot = float(agg @ v)
+            r = abs(dot / (agg_n * (float(np.linalg.norm(v)) + 1e-20)))
+            pts.append((cid, r, abs(dot / agg_E) * 100.0))
+
+        if len(pts) < 7 or max(p[1] for p in pts) < R_GATE:
+            return "—"          # not measurable
+
+        pts.sort(key=lambda z: z[0])
+        cids = np.array([p[0] for p in pts])
+        trend = medfilt(np.array([p[2] for p in pts], dtype=float), 7)
+        j = int(np.argmin(np.abs(cids - agg_cid)))
+        return f"{trend[j]:.3f}"
 
     # ── Config persistence ───────────────────────────────────────────────
 
@@ -1182,7 +1893,8 @@ class StepFinderApp:
         self.progress["value"] = done
         self.prog_lbl.config(text=f"{label}  ({done}/{total})")
 
-    def _scan_done(self, found: list, report_paths: list | None = None):
+    def _scan_done(self, found: list, report_paths: list | None = None,
+                   from_stash: bool = False):
         self._stop_busy_indicator()
         self.scan_btn.config(
             state="normal" if (self.data is not None or self._batch_files)
@@ -1198,6 +1910,8 @@ class StepFinderApp:
             for seg in segments:
                 post_bl = (f"{seg['post_baseline_mv']}"
                            if seg["post_baseline_mv"] is not None else "—")
+                pre_bl = (f"{seg['baseline_mv']}"
+                          if seg["baseline_mv"] is not None else "—")
                 self.tree.insert(
                     "", "end",
                     values=(
@@ -1207,9 +1921,10 @@ class StepFinderApp:
                         f"{seg['end_sec']:.1f}",
                         seg["frequency_hz"],
                         seg["amplitude_mv"],
-                        seg["baseline_mv"],
+                        pre_bl,
                         post_bl,
                         seg["periodicity"],
+                        seg.get("xtalk_at_agg", "—"),
                     ),
                     tags=(filepath, str(col)),
                 )
@@ -1237,6 +1952,10 @@ class StepFinderApp:
         if report_paths:
             msg += f"  {len(report_paths)} report(s) saved to results/"
         self._status(msg)
+
+        # Stash this session so "Resume Last Session" can restore it.
+        if not from_stash:
+            self._save_stash(found)
 
     # ── Report generation ─────────────────────────────────────────────────
 
@@ -1313,10 +2032,12 @@ class StepFinderApp:
                     for seg in segments:
                         post_bl = (f"{seg['post_baseline_mv']:>8.1f}"
                                    if seg["post_baseline_mv"] is not None else "     N/A")
+                        pre_bl = (f"{seg['baseline_mv']:>8.1f}"
+                                  if seg["baseline_mv"] is not None else "     N/A")
                         f.write(
                             f"{fname:<16} {cid:>4} {seg['start_sec']:>8.1f} "
                             f"{seg['end_sec']:>8.1f} {seg['frequency_hz']:>6.1f} "
-                            f"{seg['amplitude_mv']:>8.1f} {seg['baseline_mv']:>8.1f} "
+                            f"{seg['amplitude_mv']:>8.1f} {pre_bl} "
                             f"{post_bl} {seg['periodicity']:>7.3f}\n"
                         )
 
@@ -1415,6 +2136,33 @@ class StepFinderApp:
 
         results.to_json(json_path)
 
+        # Sherlock's AggressorBlockResult has a fixed schema, so add the
+        # crosstalk ratio as an extra key afterwards (additive - readers
+        # that expect only the Sherlock fields are unaffected).
+        xt_by_cid = {}
+        for _fp, cid, _col, segments in found:
+            for sg in segments:
+                v = sg.get("xtalk_at_agg")
+                if v not in (None, "-", "—"):
+                    try:
+                        xt_by_cid[cid] = float(v)
+                    except (TypeError, ValueError):
+                        pass
+                    break
+        if xt_by_cid:
+            try:
+                with open(json_path, "r") as jf:
+                    doc = json.load(jf)
+                for cid, val in xt_by_cid.items():
+                    blocks = doc.get("aggressors", {}).get(str(cid))
+                    if blocks:
+                        for blk in blocks.values():
+                            blk["xtalk_at_agg_pct"] = val
+                with open(json_path, "w") as jf:
+                    json.dump(doc, jf, indent=2)
+            except (OSError, json.JSONDecodeError):
+                pass
+
     # ── Table sorting ─────────────────────────────────────────────────────
 
     def _sort_tree(self, col: str):
@@ -1454,7 +2202,8 @@ class StepFinderApp:
         cid = int(vals[1])
         start_sec = float(vals[2])
         end_sec = float(vals[3])
-        pre_bl_mv = float(vals[6])
+        pre_bl_str = str(vals[6])
+        pre_bl_mv = float(pre_bl_str) if pre_bl_str != "—" else None
         post_bl_str = vals[7]
         post_bl_mv = float(post_bl_str) if post_bl_str != "—" else None
         tags = item["tags"]
@@ -1499,8 +2248,10 @@ class StepFinderApp:
         self.ax_raw.plot(t_raw, raw_mv, linewidth=0.5, color="#1f77b4")
         self.ax_raw.axvspan(start_sec, end_sec, alpha=0.15, color="red",
                             label="Step noise")
-        self.ax_raw.axhline(pre_bl_mv, color="#2ca02c", linewidth=1,
-                            linestyle="--", label=f"Pre BL {pre_bl_mv:.1f} mV")
+        if pre_bl_mv is not None:
+            self.ax_raw.axhline(pre_bl_mv, color="#2ca02c", linewidth=1,
+                                linestyle="--",
+                                label=f"Pre BL {pre_bl_mv:.1f} mV")
         if post_bl_mv is not None:
             self.ax_raw.axhline(post_bl_mv, color="#ff7f0e", linewidth=1,
                                 linestyle="--", label=f"Post BL {post_bl_mv:.1f} mV")
